@@ -16,6 +16,17 @@ class ReaderViewModel : ViewModel() {
 
     var recentBooks by mutableStateOf<List<Book>>(emptyList())
         private set
+    
+    var currentBook by mutableStateOf<Book?>(null)
+        private set
+
+    fun selectBookForReading(book: Book) {
+        currentBook = book
+    }
+    
+    fun clearCurrentBook() {
+        currentBook = null
+    }
 
     fun selectBook(context: Context, uri: android.net.Uri, fileName: String) {
         val bookType = when {
