@@ -3,102 +3,70 @@ package com.example.reading_app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavType
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
-import com.example.reading_app.model.BookType
-import com.example.reading_app.ui.screens.EpubReaderScreen
+import com.example.reading_app.ui.components.BottomNavigationBar
+import com.example.reading_app.ui.navigate.BottomNavItem
+import com.example.reading_app.ui.screens.BookStoreScreen
 import com.example.reading_app.ui.screens.HomeScreen
-import com.example.reading_app.ui.screens.PdfReaderScreen
+import com.example.reading_app.ui.screens.LibraryScreen
+import com.example.reading_app.ui.screens.SearchScreen
 import com.example.reading_app.ui.theme.Reading_AppTheme
-import com.example.reading_app.viewmodel.ReaderViewModel
-import android.net.Uri
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
             Reading_AppTheme {
-                ReaderApp()
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    MainScreen()
+                }
             }
         }
     }
 }
 
 @Composable
-fun ReaderApp(viewModel: ReaderViewModel = viewModel()) {
+fun MainScreen() {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = "home") {
-        composable("home") {
-            HomeScreen(
-                viewModel = viewModel,
-                onBookSelected = { book ->
-                    // Encode both title and filePath to handle special characters
-                    val encodedTitle = Uri.encode(book.title)
-                    val encodedPath = Uri.encode(book.filePath)
-                    when (book.type) {
-                        BookType.PDF -> navController.navigate("pdf/$encodedTitle/$encodedPath")
-                        BookType.EPUB -> navController.navigate("epub/$encodedTitle/$encodedPath")
-                    }
-                }
-            )
+    androidx.compose.material3.Scaffold(
+        bottomBar = {
+            BottomNavigationBar(navController = navController)
         }
-
-        composable(
-            route = "pdf/{title}/{filePath}",
-            arguments = listOf(
-                navArgument("title") { 
-                    type = NavType.StringType
-                    nullable = false
-                },
-                navArgument("filePath") { 
-                    type = NavType.StringType
-                    nullable = false
-                }
-            )
-        ) { backStackEntry ->
-            val title = Uri.decode(backStackEntry.arguments?.getString("title") ?: "")
-            val filePath = Uri.decode(backStackEntry.arguments?.getString("filePath") ?: "")
-
-            PdfReaderScreen(
-                bookTitle = title,
-                filePath = filePath,
-                onBackClick = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        composable(
-            route = "epub/{title}/{filePath}",
-            arguments = listOf(
-                navArgument("title") { 
-                    type = NavType.StringType
-                    nullable = false
-                },
-                navArgument("filePath") { 
-                    type = NavType.StringType
-                    nullable = false
-                }
-            )
-        ) { backStackEntry ->
-            val title = Uri.decode(backStackEntry.arguments?.getString("title") ?: "")
-            val filePath = Uri.decode(backStackEntry.arguments?.getString("filePath") ?: "")
-
-            EpubReaderScreen(
-                bookTitle = title,
-                filePath = filePath,
-                onBackClick = {
-                    navController.popBackStack()
-                }
-            )
+    ) { innerPadding -> // đây là PaddingValues
+        NavHost(
+            navController = navController,
+            startDestination = BottomNavItem.Home.route,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding) // ✅ thêm dòng này để tránh bị che
+        ) {
+            composable(BottomNavItem.Home.route) {
+                HomeScreen()
+            }
+            composable(BottomNavItem.BookStore.route) {
+                BookStoreScreen()
+            }
+            composable(BottomNavItem.Library.route) {
+                LibraryScreen()
+            }
+            composable(BottomNavItem.Search.route) {
+                SearchScreen()
+            }
         }
     }
 }
+
+
