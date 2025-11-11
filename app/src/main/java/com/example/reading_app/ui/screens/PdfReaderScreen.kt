@@ -17,6 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.NavigateBefore
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,6 +33,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.reading_app.model.Bookmark
+import com.example.reading_app.utils.BookmarkManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -54,9 +58,22 @@ fun PdfReaderScreen(
     var scale by remember { mutableFloatStateOf(1f) }
     var showGoToPageDialog by remember { mutableStateOf(false) }
     var pageInputText by remember { mutableStateOf("") }
+    var bookmarks by remember { mutableStateOf<List<Bookmark>>(emptyList()) }
+    var isCurrentPageBookmarked by remember { mutableStateOf(false) }
+    var showBookmarksDialog by remember { mutableStateOf(false) }
     
     // Force light mode for PDF reader
     val lightColorScheme = lightColorScheme()
+    
+    // Load bookmarks for this book
+    LaunchedEffect(filePath) {
+        bookmarks = BookmarkManager.getBookmarksForBook(context, filePath)
+    }
+    
+    // Check if current page is bookmarked
+    LaunchedEffect(currentPage, bookmarks) {
+        isCurrentPageBookmarked = BookmarkManager.isBookmarked(context, filePath, currentPage)
+    }
 
     DisposableEffect(filePath) {
         val job = scope.launch {
@@ -155,6 +172,54 @@ fun PdfReaderScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
+                    }
+                },
+                actions = {
+                    // Bookmark button
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                if (isCurrentPageBookmarked) {
+                                    // Remove bookmark
+                                    val bookmark = bookmarks.find { it.pageOrChapter == currentPage }
+                                    bookmark?.let {
+                                        BookmarkManager.deleteBookmark(context, it)
+                                        bookmarks = BookmarkManager.getBookmarksForBook(context, filePath)
+                                    }
+                                } else {
+                                    // Add bookmark
+                                    val bookmark = Bookmark(
+                                        bookFilePath = filePath,
+                                        pageOrChapter = currentPage,
+                                        title = "Page ${currentPage + 1}"
+                                    )
+                                    BookmarkManager.saveBookmark(context, bookmark)
+                                    bookmarks = BookmarkManager.getBookmarksForBook(context, filePath)
+                                }
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = if (isCurrentPageBookmarked) 
+                                Icons.Default.Bookmark 
+                            else 
+                                Icons.Default.BookmarkBorder,
+                            contentDescription = if (isCurrentPageBookmarked) 
+                                "Remove Bookmark" 
+                            else 
+                                "Add Bookmark"
+                        )
+                    }
+                    
+                    // Show bookmarks list button
+                    if (bookmarks.isNotEmpty()) {
+                        IconButton(onClick = { showBookmarksDialog = true }) {
+                            Badge(
+                                containerColor = lightColorScheme.primary
+                            ) {
+                                Text("${bookmarks.size}")
+                            }
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -316,6 +381,74 @@ fun PdfReaderScreen(
                     }
                 ) {
                     Text("Cancel")
+                }
+            }
+        )
+    }
+    
+    // Bookmarks List Dialog
+    if (showBookmarksDialog) {
+        AlertDialog(
+            onDismissRequest = { showBookmarksDialog = false },
+            title = { Text("Bookmarks") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (bookmarks.isEmpty()) {
+                        Text("No bookmarks yet")
+                    } else {
+                        bookmarks.forEach { bookmark ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                onClick = {
+                                    renderPage(bookmark.pageOrChapter)
+                                    showBookmarksDialog = false
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = bookmark.title,
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                        Text(
+                                            text = "Page ${bookmark.pageOrChapter + 1}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            scope.launch {
+                                                BookmarkManager.deleteBookmark(context, bookmark)
+                                                bookmarks = BookmarkManager.getBookmarksForBook(context, filePath)
+                                            }
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Bookmark,
+                                            contentDescription = "Remove Bookmark",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showBookmarksDialog = false }) {
+                    Text("Close")
                 }
             }
         )
