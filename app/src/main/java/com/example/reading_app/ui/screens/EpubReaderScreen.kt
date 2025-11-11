@@ -2,16 +2,22 @@ package com.example.reading_app.ui.screens
 
 import android.webkit.WebView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.NavigateBefore
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +38,9 @@ fun EpubReaderScreen(
     var chapterContent by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var showGoToChapterDialog by remember { mutableStateOf(false) }
+    var chapterInputText by remember { mutableStateOf("") }
+    val isDarkMode = isSystemInDarkTheme()
 
     LaunchedEffect(filePath) {
         isLoading = true
@@ -96,7 +105,7 @@ fun EpubReaderScreen(
                 withContext(Dispatchers.Main) {
                     chapters = chapterList
                     if (chapterList.isNotEmpty()) {
-                        chapterContent = wrapHtmlContent(chapterList[0])
+                        chapterContent = wrapHtmlContent(chapterList[0], isDarkMode)
                         error = null
                     } else {
                         error = "No readable content found in EPUB file"
@@ -115,7 +124,7 @@ fun EpubReaderScreen(
 
     fun loadChapter(index: Int) {
         if (index in chapters.indices) {
-            chapterContent = wrapHtmlContent(chapters[index])
+            chapterContent = wrapHtmlContent(chapters[index], isDarkMode)
             currentChapterIndex = index
         }
     }
@@ -130,10 +139,15 @@ fun EpubReaderScreen(
                             style = MaterialTheme.typography.titleMedium
                         )
                         if (chapters.isNotEmpty()) {
-                            Text(
-                                text = "Chapter ${currentChapterIndex + 1} of ${chapters.size}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                            TextButton(
+                                onClick = { showGoToChapterDialog = true },
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text(
+                                    text = "Chapter ${currentChapterIndex + 1} of ${chapters.size}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
                     }
                 },
@@ -171,10 +185,14 @@ fun EpubReaderScreen(
                             )
                         }
                         
-                        Text(
-                            text = "${currentChapterIndex + 1} / ${chapters.size}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        TextButton(
+                            onClick = { showGoToChapterDialog = true }
+                        ) {
+                            Text(
+                                text = "${currentChapterIndex + 1} / ${chapters.size}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                         
                         IconButton(
                             onClick = { loadChapter(currentChapterIndex + 1) },
@@ -262,9 +280,76 @@ fun EpubReaderScreen(
             }
         }
     }
+    
+    // Go to Chapter Dialog
+    if (showGoToChapterDialog) {
+        AlertDialog(
+            onDismissRequest = { showGoToChapterDialog = false },
+            title = { Text("Go to Chapter") },
+            text = {
+                Column {
+                    Text(
+                        text = "Enter chapter number (1-${chapters.size})",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    OutlinedTextField(
+                        value = chapterInputText,
+                        onValueChange = { chapterInputText = it },
+                        label = { Text("Chapter number") },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Go
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onGo = {
+                                val chapterNumber = chapterInputText.toIntOrNull()
+                                if (chapterNumber != null && chapterNumber in 1..chapters.size) {
+                                    loadChapter(chapterNumber - 1)
+                                    showGoToChapterDialog = false
+                                    chapterInputText = ""
+                                }
+                            }
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val chapterNumber = chapterInputText.toIntOrNull()
+                        if (chapterNumber != null && chapterNumber in 1..chapters.size) {
+                            loadChapter(chapterNumber - 1)
+                            showGoToChapterDialog = false
+                            chapterInputText = ""
+                        }
+                    }
+                ) {
+                    Text("Go")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showGoToChapterDialog = false
+                        chapterInputText = ""
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
-private fun wrapHtmlContent(content: String): String {
+private fun wrapHtmlContent(content: String, isDarkMode: Boolean): String {
+    val backgroundColor = if (isDarkMode) "#1e1e1e" else "#fefef8"
+    val textColor = if (isDarkMode) "#e0e0e0" else "#2c2c2c"
+    val headingColor = if (isDarkMode) "#ffffff" else "#1a1a1a"
+    val linkColor = if (isDarkMode) "#66b3ff" else "#0066cc"
+    
     return """
         <!DOCTYPE html>
         <html>
@@ -276,8 +361,8 @@ private fun wrapHtmlContent(content: String): String {
                     font-size: 18px;
                     line-height: 1.8;
                     padding: 20px;
-                    color: #2c2c2c;
-                    background-color: #fefef8;
+                    color: $textColor;
+                    background-color: $backgroundColor;
                     max-width: 800px;
                     margin: 0 auto;
                 }
@@ -293,7 +378,7 @@ private fun wrapHtmlContent(content: String): String {
                     font-family: 'Helvetica Neue', Arial, sans-serif;
                     margin-top: 1.5em;
                     margin-bottom: 0.5em;
-                    color: #1a1a1a;
+                    color: $headingColor;
                     text-align: left;
                 }
                 img {
@@ -303,7 +388,7 @@ private fun wrapHtmlContent(content: String): String {
                     margin: 1em auto;
                 }
                 a {
-                    color: #0066cc;
+                    color: $linkColor;
                     text-decoration: none;
                 }
             </style>

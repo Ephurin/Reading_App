@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.example.reading_app.model.Book
 import com.example.reading_app.model.BookType
+import com.example.reading_app.utils.CoverExtractor
 import java.io.File
 import java.io.FileOutputStream
 
@@ -16,6 +17,17 @@ class ReaderViewModel : ViewModel() {
 
     var recentBooks by mutableStateOf<List<Book>>(emptyList())
         private set
+    
+    var currentBook by mutableStateOf<Book?>(null)
+        private set
+
+    fun selectBookForReading(book: Book) {
+        currentBook = book
+    }
+    
+    fun clearCurrentBook() {
+        currentBook = null
+    }
 
     fun selectBook(context: Context, uri: android.net.Uri, fileName: String) {
         val bookType = when {
@@ -42,10 +54,17 @@ class ReaderViewModel : ViewModel() {
                 }
             }
             
+            // Extract cover image
+            val coverPath = when (bookType) {
+                BookType.PDF -> CoverExtractor.extractPdfCover(context, destFile)
+                BookType.EPUB -> CoverExtractor.extractEpubCover(context, destFile)
+            }
+            
             val book = Book(
                 filePath = destFile.absolutePath,
                 title = fileName.removeSuffix(".pdf").removeSuffix(".epub"),
-                type = bookType
+                type = bookType,
+                coverImagePath = coverPath
             )
 
             selectedBook = book
