@@ -7,22 +7,29 @@ import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.NavigateBefore
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,6 +52,11 @@ fun PdfReaderScreen(
     var isLoading by remember { mutableStateOf(true) }
     var pdfRenderer by remember { mutableStateOf<PdfRenderer?>(null) }
     var scale by remember { mutableFloatStateOf(1f) }
+    var showGoToPageDialog by remember { mutableStateOf(false) }
+    var pageInputText by remember { mutableStateOf("") }
+    
+    // Force light mode for PDF reader
+    val lightColorScheme = lightColorScheme()
 
     DisposableEffect(filePath) {
         val job = scope.launch {
@@ -125,10 +137,15 @@ fun PdfReaderScreen(
                             style = MaterialTheme.typography.titleMedium
                         )
                         if (totalPages > 0) {
-                            Text(
-                                text = "Page ${currentPage + 1} of $totalPages",
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                            TextButton(
+                                onClick = { showGoToPageDialog = true },
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text(
+                                    text = "Page ${currentPage + 1} of $totalPages",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
                     }
                 },
@@ -141,8 +158,8 @@ fun PdfReaderScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = lightColorScheme.primaryContainer,
+                    titleContentColor = lightColorScheme.onPrimaryContainer
                 )
             )
         },
@@ -166,10 +183,14 @@ fun PdfReaderScreen(
                             )
                         }
                         
-                        Text(
-                            text = "${currentPage + 1} / $totalPages",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        TextButton(
+                            onClick = { showGoToPageDialog = true }
+                        ) {
+                            Text(
+                                text = "${currentPage + 1} / $totalPages",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                         
                         IconButton(
                             onClick = { renderPage(currentPage + 1) },
@@ -189,7 +210,7 @@ fun PdfReaderScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(MaterialTheme.colorScheme.surface)
+                .background(Color.White)  // Force white background for PDF
         ) {
             when {
                 isLoading -> {
@@ -236,5 +257,67 @@ fun PdfReaderScreen(
                 }
             }
         }
+    }
+    
+    // Go to Page Dialog
+    if (showGoToPageDialog) {
+        AlertDialog(
+            onDismissRequest = { showGoToPageDialog = false },
+            title = { Text("Go to Page") },
+            text = {
+                Column {
+                    Text(
+                        text = "Enter page number (1-$totalPages)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    OutlinedTextField(
+                        value = pageInputText,
+                        onValueChange = { pageInputText = it },
+                        label = { Text("Page number") },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Go
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onGo = {
+                                val pageNumber = pageInputText.toIntOrNull()
+                                if (pageNumber != null && pageNumber in 1..totalPages) {
+                                    renderPage(pageNumber - 1)
+                                    showGoToPageDialog = false
+                                    pageInputText = ""
+                                }
+                            }
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val pageNumber = pageInputText.toIntOrNull()
+                        if (pageNumber != null && pageNumber in 1..totalPages) {
+                            renderPage(pageNumber - 1)
+                            showGoToPageDialog = false
+                            pageInputText = ""
+                        }
+                    }
+                ) {
+                    Text("Go")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showGoToPageDialog = false
+                        pageInputText = ""
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
