@@ -21,10 +21,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.reading_app.R
 import com.example.reading_app.model.Book
 import com.example.reading_app.model.BookType
 import com.example.reading_app.viewmodel.ReaderViewModel
+import java.io.File
 
 @Composable
 fun LibraryScreen(
@@ -132,21 +135,37 @@ fun LibraryScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(12.dp)
                         ) {
-                            // Book icon placeholder
-                            Surface(
-                                modifier = Modifier.size(80.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = MaterialTheme.shapes.small
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center
+                            // Book cover image or icon placeholder
+                            if (book.coverImagePath != null && File(book.coverImagePath).exists()) {
+                                // Display extracted cover image
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(File(book.coverImagePath))
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Book cover",
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .padding(4.dp),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                // Fallback to icon
+                                Surface(
+                                    modifier = Modifier.size(80.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = MaterialTheme.shapes.small
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.MenuBook,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(40.dp),
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
+                                    Box(
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.MenuBook,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(40.dp),
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
                                 }
                             }
                             
