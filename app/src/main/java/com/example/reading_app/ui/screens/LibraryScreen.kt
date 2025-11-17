@@ -21,6 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.reading_app.R
@@ -32,9 +33,10 @@ import java.io.File
 @Composable
 fun LibraryScreen(
     onBookSelected: (Book) -> Unit = {},
-    readerViewModel: ReaderViewModel
+    readerViewModel: ReaderViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val books = readerViewModel.recentBooks
     
     // File picker launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -84,9 +86,6 @@ fun LibraryScreen(
         }
 
         Spacer(Modifier.height(16.dp))
-        
-        // Show recent books from ViewModel
-        val books = readerViewModel.recentBooks
         
         if (books.isEmpty()) {
             // Empty state
