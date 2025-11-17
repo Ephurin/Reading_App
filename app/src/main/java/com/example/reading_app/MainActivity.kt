@@ -6,22 +6,21 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.reading_app.model.BookType
 import com.example.reading_app.ui.components.BottomNavigationBar
 import com.example.reading_app.ui.navigate.BottomNavItem
-import com.example.reading_app.ui.screens.BookStoreScreen
-import com.example.reading_app.ui.screens.EpubReaderScreen
-import com.example.reading_app.ui.screens.HomeScreen
-import com.example.reading_app.ui.screens.LibraryScreen
-import com.example.reading_app.ui.screens.PdfReaderScreen
-import com.example.reading_app.ui.screens.SearchScreen
+import com.example.reading_app.ui.screens.*
 import com.example.reading_app.ui.theme.Reading_AppTheme
 import com.example.reading_app.viewmodel.ReaderViewModel
 
@@ -34,7 +33,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreen()
+                    ReadingApp()
                 }
             }
         }
@@ -42,22 +41,55 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainScreen() {
-    val navController = rememberNavController()
+fun ReadingApp() {
+    val rootNavController = rememberNavController()
+
+    NavHost(navController = rootNavController, startDestination = "login") {
+        composable("login") {
+            LoginScreen(
+                onLoginClick = {
+                    rootNavController.navigate("main") { 
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
+                onNavigateToRegister = {
+                    rootNavController.navigate("register")
+                },
+                onSkipClick = {
+                    rootNavController.navigate("main") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                }
+            )
+        }
+        composable("register") {
+            RegisterScreen(
+                onRegisterClick = { rootNavController.popBackStack() },
+                onNavigateBack = { rootNavController.popBackStack() }
+            )
+        }
+        composable("main") {
+            MainScreen(rootNavController = rootNavController)
+        }
+    }
+}
+
+@Composable
+fun MainScreen(rootNavController: NavHostController) {
+    val mainNavController = rememberNavController()
     val readerViewModel: ReaderViewModel = viewModel()
 
-    androidx.compose.material3.Scaffold(
+    Scaffold(
         bottomBar = {
-            val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-            // Hide bottom nav when in reader screens
-            if (currentRoute?.startsWith("pdf_reader") != true && 
+            val currentRoute = mainNavController.currentBackStackEntryAsState().value?.destination?.route
+            if (currentRoute?.startsWith("pdf_reader") != true &&
                 currentRoute?.startsWith("epub_reader") != true) {
-                BottomNavigationBar(navController = navController)
+                BottomNavigationBar(navController = mainNavController)
             }
         }
     ) { innerPadding ->
         NavHost(
-            navController = navController,
+            navController = mainNavController,
             startDestination = BottomNavItem.Home.route,
             modifier = Modifier
                 .fillMaxSize()
@@ -72,26 +104,26 @@ fun MainScreen() {
             composable(BottomNavItem.Library.route) {
                 LibraryScreen(
                     onBookSelected = { book ->
-                        // Store selected book in ViewModel
                         readerViewModel.selectBookForReading(book)
                         when (book.type) {
-                            com.example.reading_app.model.BookType.PDF -> {
-                                navController.navigate("pdf_reader")
-                            }
-                            com.example.reading_app.model.BookType.EPUB -> {
-                                navController.navigate("epub_reader")
-                            }
+                            BookType.PDF -> mainNavController.navigate("pdf_reader")
+                            BookType.EPUB -> mainNavController.navigate("epub_reader")
                         }
-                    },
-                    readerViewModel = readerViewModel
+                    }
                 )
             }
             composable(BottomNavItem.Search.route) {
                 SearchScreen()
             }
-            
-            // PDF Reader Screen
-            composable(route = "pdf_reader") {
+            composable(BottomNavItem.Profile.route) {
+                ProfileScreen(onLogoutClick = {
+                    rootNavController.navigate("login") {
+                        popUpTo("main") { inclusive = true }
+                    }
+                })
+            }
+
+            composable("pdf_reader") {
                 val currentBook = readerViewModel.currentBook
                 if (currentBook != null) {
                     PdfReaderScreen(
@@ -99,17 +131,15 @@ fun MainScreen() {
                         filePath = currentBook.filePath,
                         onBackClick = { 
                             readerViewModel.clearCurrentBook()
-                            navController.popBackStack() 
+                            mainNavController.popBackStack() 
                         }
                     )
                 } else {
-                    // Fallback if no book selected
-                    navController.popBackStack()
+                    mainNavController.popBackStack()
                 }
             }
-            
-            // EPUB Reader Screen
-            composable(route = "epub_reader") {
+
+            composable("epub_reader") {
                 val currentBook = readerViewModel.currentBook
                 if (currentBook != null) {
                     EpubReaderScreen(
@@ -117,16 +147,13 @@ fun MainScreen() {
                         filePath = currentBook.filePath,
                         onBackClick = { 
                             readerViewModel.clearCurrentBook()
-                            navController.popBackStack() 
+                            mainNavController.popBackStack() 
                         }
                     )
                 } else {
-                    // Fallback if no book selected
-                    navController.popBackStack()
+                    mainNavController.popBackStack()
                 }
             }
         }
     }
 }
-
-
