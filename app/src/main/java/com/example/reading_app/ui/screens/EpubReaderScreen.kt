@@ -22,8 +22,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.reading_app.model.Bookmark
 import com.example.reading_app.utils.BookmarkManager
+import com.example.reading_app.viewmodel.ReaderViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,7 +37,8 @@ import java.util.zip.ZipInputStream
 fun EpubReaderScreen(
     bookTitle: String,
     filePath: String,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    readerViewModel: ReaderViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -173,6 +176,9 @@ fun EpubReaderScreen(
             currentChapterFile = chapterFiles[index]
             chapterContent = injectStyles(chapters[index], isDarkMode)
             currentChapterIndex = index
+            
+            // Update progress in ViewModel
+            readerViewModel.updateBookProgress(filePath, index + 1, chapters.size)
         }
     }
 

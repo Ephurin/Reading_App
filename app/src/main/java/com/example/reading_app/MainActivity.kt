@@ -97,7 +97,16 @@ fun MainScreen(rootNavController: NavHostController) {
                 .padding(innerPadding)
         ) {
             composable(BottomNavItem.Home.route) {
-                HomeScreen()
+                HomeScreen(
+                    recentBooks = readerViewModel.recentBooks,
+                    onBookSelected = { book ->
+                        readerViewModel.selectBookForReading(book)
+                        when (book.type) {
+                            BookType.PDF -> mainNavController.navigate("pdf_reader")
+                            BookType.EPUB -> mainNavController.navigate("epub_reader")
+                        }
+                    }
+                )
             }
             composable(BottomNavItem.BookStore.route) {
                 BookStoreScreen(navController = mainNavController, bookStoreViewModel = bookStoreViewModel)
@@ -105,13 +114,8 @@ fun MainScreen(rootNavController: NavHostController) {
             composable(BottomNavItem.Library.route) {
                 LibraryScreen(
                     onBookSelected = { book ->
-                        readerViewModel.selectBook(
-                            // context is not available here, so selectBook should be used only for books already imported
-                            // If you need context, refactor LibraryScreen to provide it
-                            android.content.ContextWrapper(null), // placeholder, should be replaced with actual context if needed
-                            android.net.Uri.fromFile(java.io.File(book.filePath)),
-                            book.title + if (book.type == BookType.PDF) ".pdf" else ".epub"
-                        )
+                        // Book is already in internal storage; select for reading
+                        readerViewModel.selectBookForReading(book)
                         when (book.type) {
                             BookType.PDF -> mainNavController.navigate("pdf_reader")
                             BookType.EPUB -> mainNavController.navigate("epub_reader")
@@ -132,15 +136,16 @@ fun MainScreen(rootNavController: NavHostController) {
             }
 
             composable("pdf_reader") {
-                val selectedBook = readerViewModel.selectedBook
-                if (selectedBook != null) {
+                val bookToOpen = readerViewModel.selectedBook ?: readerViewModel.currentBook
+                if (bookToOpen != null) {
                     PdfReaderScreen(
-                        bookTitle = selectedBook.title,
-                        filePath = selectedBook.filePath,
+                        bookTitle = bookToOpen.title,
+                        filePath = bookToOpen.filePath,
                         onBackClick = {
                             readerViewModel.clearSelection()
                             mainNavController.popBackStack()
-                        }
+                        },
+                        readerViewModel = readerViewModel
                     )
                 } else {
                     mainNavController.popBackStack()
@@ -148,15 +153,16 @@ fun MainScreen(rootNavController: NavHostController) {
             }
 
             composable("epub_reader") {
-                val selectedBook = readerViewModel.selectedBook
-                if (selectedBook != null) {
+                val bookToOpen = readerViewModel.selectedBook ?: readerViewModel.currentBook
+                if (bookToOpen != null) {
                     EpubReaderScreen(
-                        bookTitle = selectedBook.title,
-                        filePath = selectedBook.filePath,
+                        bookTitle = bookToOpen.title,
+                        filePath = bookToOpen.filePath,
                         onBackClick = {
                             readerViewModel.clearSelection()
                             mainNavController.popBackStack()
-                        }
+                        },
+                        readerViewModel = readerViewModel
                     )
                 } else {
                     mainNavController.popBackStack()
