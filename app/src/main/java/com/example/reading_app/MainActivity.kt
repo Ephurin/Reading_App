@@ -105,8 +105,7 @@ fun MainScreen(rootNavController: NavHostController) {
                             BookType.PDF -> mainNavController.navigate("pdf_reader")
                             BookType.EPUB -> mainNavController.navigate("epub_reader")
                         }
-                    },
-                    readerViewModel = readerViewModel
+                    }
                 )
             }
             composable(BottomNavItem.BookStore.route) {
