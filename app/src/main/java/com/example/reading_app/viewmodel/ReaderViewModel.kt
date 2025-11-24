@@ -1,21 +1,35 @@
 package com.example.reading_app.viewmodel
 
+import android.app.Application
 import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import com.example.reading_app.model.Book
 import com.example.reading_app.model.BookType
+import com.example.reading_app.utils.BookStorage
+import com.example.reading_app.utils.CoverExtractor
 import java.io.File
 import java.io.FileOutputStream
 
-class ReaderViewModel : ViewModel() {
+class ReaderViewModel(application: Application) : AndroidViewModel(application) {
     var selectedBook by mutableStateOf<Book?>(null)
-        private set
+
+    fun selectBookForReading(book: Book) {
+        selectedBook = book
+    }
 
     var recentBooks by mutableStateOf<List<Book>>(emptyList())
         private set
+
+    init {
+        loadBooks()
+    }
+
+    private fun loadBooks() {
+        recentBooks = BookStorage.loadBooks(getApplication())
+    }
 
     fun selectBook(context: Context, uri: android.net.Uri, fileName: String) {
         val bookType = when {
@@ -42,6 +56,11 @@ class ReaderViewModel : ViewModel() {
                 }
             }
             
+            val coverPath = when (bookType) {
+                BookType.PDF -> CoverExtractor.extractPdfCover(context, destFile)
+                BookType.EPUB -> CoverExtractor.extractEpubCover(context, destFile)
+            }
+            
             val book = Book(
                 filePath = destFile.absolutePath,
                 title = fileName.removeSuffix(".pdf").removeSuffix(".epub"),
@@ -62,6 +81,7 @@ class ReaderViewModel : ViewModel() {
 
     private fun addToRecentBooks(book: Book) {
         recentBooks = listOf(book) + recentBooks.filterNot { it.filePath == book.filePath }
+        BookStorage.saveBooks(getApplication(), recentBooks)
     }
 
     fun clearSelection() {

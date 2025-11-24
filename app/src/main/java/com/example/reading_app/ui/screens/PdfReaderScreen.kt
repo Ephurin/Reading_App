@@ -49,7 +49,7 @@ fun PdfReaderScreen(
     bookTitle: String,
     filePath: String,
     onBackClick: () -> Unit,
-    readerViewModel: ReaderViewModel = viewModel()
+    readerViewModel: ReaderViewModel
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

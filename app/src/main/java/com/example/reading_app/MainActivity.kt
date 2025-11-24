@@ -105,13 +105,7 @@ fun MainScreen(rootNavController: NavHostController) {
             composable(BottomNavItem.Library.route) {
                 LibraryScreen(
                     onBookSelected = { book ->
-                        readerViewModel.selectBook(
-                            // context is not available here, so selectBook should be used only for books already imported
-                            // If you need context, refactor LibraryScreen to provide it
-                            android.content.ContextWrapper(null), // placeholder, should be replaced with actual context if needed
-                            android.net.Uri.fromFile(java.io.File(book.filePath)),
-                            book.title + if (book.type == BookType.PDF) ".pdf" else ".epub"
-                        )
+                        readerViewModel.selectBookForReading(book)
                         when (book.type) {
                             BookType.PDF -> mainNavController.navigate("pdf_reader")
                             BookType.EPUB -> mainNavController.navigate("epub_reader")
