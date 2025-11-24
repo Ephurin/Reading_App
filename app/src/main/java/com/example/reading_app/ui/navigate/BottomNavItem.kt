@@ -13,4 +13,5 @@ sealed class BottomNavItem(
     object BookStore : BottomNavItem("store", "Cửa hàng", Icons.Default.Store)
     object Library : BottomNavItem("library", "Thư viện", Icons.Default.LibraryBooks)
     object Search : BottomNavItem("search", "Tìm kiếm", Icons.Default.Search)
+    object Profile : BottomNavItem("profile", "Cá nhân", Icons.Default.Person)
 }

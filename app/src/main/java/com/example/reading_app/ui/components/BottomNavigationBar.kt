@@ -1,6 +1,5 @@
 package com.example.reading_app.ui.components
 
-
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -16,7 +15,8 @@ fun BottomNavigationBar(navController: NavHostController) {
         BottomNavItem.Home,
         BottomNavItem.BookStore,
         BottomNavItem.Library,
-        BottomNavItem.Search
+        BottomNavItem.Search,
+        BottomNavItem.Profile // Added Profile item
     )
 
     NavigationBar {
@@ -28,8 +28,15 @@ fun BottomNavigationBar(navController: NavHostController) {
                 selected = currentRoute == item.route,
                 onClick = {
                     navController.navigate(item.route) {
-                        popUpTo("home") { inclusive = false }
+                        // Pop up to the start destination of the graph to avoid building up a large stack of destinations
+                        // on the back stack as users select items
+                        popUpTo(navController.graph.startDestinationId) {
+                            saveState = true
+                        }
+                        // Avoid multiple copies of the same destination when re-selecting the same item
                         launchSingleTop = true
+                        // Restore state when re-selecting a previously selected item
+                        restoreState = true
                     }
                 },
                 label = { Text(item.label) },
