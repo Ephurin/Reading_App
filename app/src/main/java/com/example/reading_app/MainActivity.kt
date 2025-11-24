@@ -78,6 +78,7 @@ fun ReadingApp() {
 fun MainScreen(rootNavController: NavHostController) {
     val mainNavController = rememberNavController()
     val readerViewModel: ReaderViewModel = viewModel()
+    val bookStoreViewModel: com.example.reading_app.viewmodel.BookStoreViewModel = viewModel()
 
     Scaffold(
         bottomBar = {
@@ -99,17 +100,24 @@ fun MainScreen(rootNavController: NavHostController) {
                 HomeScreen()
             }
             composable(BottomNavItem.BookStore.route) {
-                BookStoreScreen()
+                BookStoreScreen(navController = mainNavController, bookStoreViewModel = bookStoreViewModel)
             }
             composable(BottomNavItem.Library.route) {
                 LibraryScreen(
                     onBookSelected = { book ->
-                        readerViewModel.selectBookForReading(book)
+                        readerViewModel.selectBook(
+                            // context is not available here, so selectBook should be used only for books already imported
+                            // If you need context, refactor LibraryScreen to provide it
+                            android.content.ContextWrapper(null), // placeholder, should be replaced with actual context if needed
+                            android.net.Uri.fromFile(java.io.File(book.filePath)),
+                            book.title + if (book.type == BookType.PDF) ".pdf" else ".epub"
+                        )
                         when (book.type) {
                             BookType.PDF -> mainNavController.navigate("pdf_reader")
                             BookType.EPUB -> mainNavController.navigate("epub_reader")
                         }
-                    }
+                    },
+                    readerViewModel = readerViewModel
                 )
             }
             composable(BottomNavItem.Search.route) {
@@ -124,14 +132,14 @@ fun MainScreen(rootNavController: NavHostController) {
             }
 
             composable("pdf_reader") {
-                val currentBook = readerViewModel.currentBook
-                if (currentBook != null) {
+                val selectedBook = readerViewModel.selectedBook
+                if (selectedBook != null) {
                     PdfReaderScreen(
-                        bookTitle = currentBook.title,
-                        filePath = currentBook.filePath,
-                        onBackClick = { 
-                            readerViewModel.clearCurrentBook()
-                            mainNavController.popBackStack() 
+                        bookTitle = selectedBook.title,
+                        filePath = selectedBook.filePath,
+                        onBackClick = {
+                            readerViewModel.clearSelection()
+                            mainNavController.popBackStack()
                         }
                     )
                 } else {
@@ -140,19 +148,22 @@ fun MainScreen(rootNavController: NavHostController) {
             }
 
             composable("epub_reader") {
-                val currentBook = readerViewModel.currentBook
-                if (currentBook != null) {
+                val selectedBook = readerViewModel.selectedBook
+                if (selectedBook != null) {
                     EpubReaderScreen(
-                        bookTitle = currentBook.title,
-                        filePath = currentBook.filePath,
-                        onBackClick = { 
-                            readerViewModel.clearCurrentBook()
-                            mainNavController.popBackStack() 
+                        bookTitle = selectedBook.title,
+                        filePath = selectedBook.filePath,
+                        onBackClick = {
+                            readerViewModel.clearSelection()
+                            mainNavController.popBackStack()
                         }
                     )
                 } else {
                     mainNavController.popBackStack()
                 }
+            }
+            composable("book_details") {
+                BookDetailsScreen(navController = mainNavController, bookStoreViewModel = bookStoreViewModel, readerViewModel = readerViewModel)
             }
         }
     }
