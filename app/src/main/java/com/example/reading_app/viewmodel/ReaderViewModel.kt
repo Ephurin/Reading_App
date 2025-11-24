@@ -68,8 +68,12 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
             val book = Book(
                 filePath = destFile.absolutePath,
                 title = fileName.removeSuffix(".pdf").removeSuffix(".epub"),
+                author = "Không xác định", // Default author
                 type = bookType,
-                coverImagePath = coverPath
+                coverImagePath = coverPath,
+                currentProgress = 0f,
+                totalPages = 0, // Will be updated when reading
+                currentPage = 0
             )
 
             addBook(book)
@@ -82,5 +86,33 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         val updatedBooks = listOf(book) + recentBooks.filterNot { it.filePath == book.filePath }
         recentBooks = updatedBooks
         BookStorage.saveBooks(getApplication(), updatedBooks)
+    }
+
+    fun updateBookProgress(bookFilePath: String, currentPage: Int, totalPages: Int) {
+        val progress = if (totalPages > 0) currentPage.toFloat() / totalPages.toFloat() else 0f
+        
+        val updatedBooks = recentBooks.map { book ->
+            if (book.filePath == bookFilePath) {
+                book.copy(
+                    currentProgress = progress.coerceIn(0f, 1f),
+                    totalPages = totalPages,
+                    currentPage = currentPage
+                )
+            } else {
+                book
+            }
+        }
+        
+        recentBooks = updatedBooks
+        BookStorage.saveBooks(getApplication(), updatedBooks)
+        
+        // Update current book if it's the one being read
+        if (currentBook?.filePath == bookFilePath) {
+            currentBook = currentBook?.copy(
+                currentProgress = progress.coerceIn(0f, 1f),
+                totalPages = totalPages,
+                currentPage = currentPage
+            )
+        }
     }
 }

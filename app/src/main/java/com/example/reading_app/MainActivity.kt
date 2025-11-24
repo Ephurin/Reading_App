@@ -132,7 +132,8 @@ fun MainScreen(rootNavController: NavHostController) {
                         onBackClick = { 
                             readerViewModel.clearCurrentBook()
                             mainNavController.popBackStack() 
-                        }
+                        },
+                        readerViewModel = readerViewModel
                     )
                 } else {
                     mainNavController.popBackStack()
@@ -148,7 +149,8 @@ fun MainScreen(rootNavController: NavHostController) {
                         onBackClick = { 
                             readerViewModel.clearCurrentBook()
                             mainNavController.popBackStack() 
-                        }
+                        },
+                        readerViewModel = readerViewModel
                     )
                 } else {
                     mainNavController.popBackStack()

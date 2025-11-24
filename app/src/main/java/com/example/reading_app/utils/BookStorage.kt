@@ -18,8 +18,12 @@ object BookStorage {
                 val jsonObject = JSONObject().apply {
                     put("filePath", book.filePath)
                     put("title", book.title)
+                    put("author", book.author)
                     put("type", book.type.name)
                     put("coverImagePath", book.coverImagePath)
+                    put("currentProgress", book.currentProgress.toDouble())
+                    put("totalPages", book.totalPages)
+                    put("currentPage", book.currentPage)
                 }
                 jsonArray.put(jsonObject)
             }
@@ -45,8 +49,12 @@ object BookStorage {
                 val book = Book(
                     filePath = jsonObject.getString("filePath"),
                     title = jsonObject.getString("title"),
+                    author = jsonObject.optString("author", "Không xác định"),
                     type = BookType.valueOf(jsonObject.getString("type")),
-                    coverImagePath = jsonObject.optString("coverImagePath", null)
+                    coverImagePath = jsonObject.optString("coverImagePath", null),
+                    currentProgress = jsonObject.optDouble("currentProgress", 0.0).toFloat(),
+                    totalPages = jsonObject.optInt("totalPages", 0),
+                    currentPage = jsonObject.optInt("currentPage", 0)
                 )
                 books.add(book)
             }
@@ -54,6 +62,19 @@ object BookStorage {
         } catch (e: Exception) {
             e.printStackTrace()
             return emptyList()
+        }
+    }
+
+    fun updateBook(context: Context, updatedBook: Book) {
+        try {
+            val books = loadBooks(context).toMutableList()
+            val index = books.indexOfFirst { it.filePath == updatedBook.filePath }
+            if (index != -1) {
+                books[index] = updatedBook
+                saveBooks(context, books)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }

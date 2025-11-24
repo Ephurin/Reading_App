@@ -33,8 +33,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.reading_app.model.Bookmark
 import com.example.reading_app.utils.BookmarkManager
+import com.example.reading_app.viewmodel.ReaderViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -46,7 +48,8 @@ import java.io.FileOutputStream
 fun PdfReaderScreen(
     bookTitle: String,
     filePath: String,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    readerViewModel: ReaderViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -136,6 +139,9 @@ fun PdfReaderScreen(
                         currentBitmap = bitmap
                         currentPage = pageIndex
                         page.close()
+                        
+                        // Update progress in ViewModel
+                        readerViewModel.updateBookProgress(filePath, pageIndex + 1, totalPages)
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
