@@ -97,7 +97,16 @@ fun MainScreen(rootNavController: NavHostController) {
                 .padding(innerPadding)
         ) {
             composable(BottomNavItem.Home.route) {
-                HomeScreen()
+                HomeScreen(
+                    recentBooks = readerViewModel.recentBooks,
+                    onBookSelected = { book ->
+                        readerViewModel.selectBookForReading(book)
+                        when (book.type) {
+                            BookType.PDF -> mainNavController.navigate("pdf_reader")
+                            BookType.EPUB -> mainNavController.navigate("epub_reader")
+                        }
+                    }
+                )
             }
             composable(BottomNavItem.BookStore.route) {
                 BookStoreScreen(navController = mainNavController, bookStoreViewModel = bookStoreViewModel)
