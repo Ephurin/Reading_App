@@ -33,7 +33,7 @@ import java.io.File
 @Composable
 fun LibraryScreen(
     onBookSelected: (Book) -> Unit = {},
-    readerViewModel: ReaderViewModel = viewModel()
+    readerViewModel: ReaderViewModel
 ) {
     val context = LocalContext.current
     val books = readerViewModel.recentBooks
