@@ -22,6 +22,7 @@ import com.example.reading_app.ui.components.BottomNavigationBar
 import com.example.reading_app.ui.navigate.BottomNavItem
 import com.example.reading_app.ui.screens.*
 import com.example.reading_app.ui.theme.Reading_AppTheme
+import com.example.reading_app.viewmodel.BookStoreViewModel
 import com.example.reading_app.viewmodel.ReaderViewModel
 
 class MainActivity : ComponentActivity() {
@@ -78,7 +79,7 @@ fun ReadingApp() {
 fun MainScreen(rootNavController: NavHostController) {
     val mainNavController = rememberNavController()
     val readerViewModel: ReaderViewModel = viewModel()
-    val bookStoreViewModel: com.example.reading_app.viewmodel.BookStoreViewModel = viewModel()
+    val bookStoreViewModel: BookStoreViewModel = viewModel()
 
     Scaffold(
         bottomBar = {
@@ -97,7 +98,18 @@ fun MainScreen(rootNavController: NavHostController) {
                 .padding(innerPadding)
         ) {
             composable(BottomNavItem.Home.route) {
-                HomeScreen()
+                HomeScreen(
+                    recentBooks = readerViewModel.recentBooks,
+                    onBookSelected = { book ->
+                        readerViewModel.selectBookForReading(book)
+                        when (book.type) {
+                            BookType.PDF -> mainNavController.navigate("pdf_reader")
+                            BookType.EPUB -> mainNavController.navigate("epub_reader")
+                        }
+                    },
+                    bookStoreViewModel = bookStoreViewModel,
+                    navController = mainNavController
+                )
             }
             composable(BottomNavItem.BookStore.route) {
                 BookStoreScreen(navController = mainNavController, bookStoreViewModel = bookStoreViewModel)
@@ -126,11 +138,11 @@ fun MainScreen(rootNavController: NavHostController) {
             }
 
             composable("pdf_reader") {
-                val selectedBook = readerViewModel.selectedBook
-                if (selectedBook != null) {
+                val bookToOpen = readerViewModel.selectedBook ?: readerViewModel.currentBook
+                if (bookToOpen != null) {
                     PdfReaderScreen(
-                        bookTitle = selectedBook.title,
-                        filePath = selectedBook.filePath,
+                        bookTitle = bookToOpen.title,
+                        filePath = bookToOpen.filePath,
                         onBackClick = {
                             readerViewModel.clearSelection()
                             mainNavController.navigate(BottomNavItem.Library.route) {
@@ -145,11 +157,11 @@ fun MainScreen(rootNavController: NavHostController) {
             }
 
             composable("epub_reader") {
-                val selectedBook = readerViewModel.selectedBook
-                if (selectedBook != null) {
+                val bookToOpen = readerViewModel.selectedBook ?: readerViewModel.currentBook
+                if (bookToOpen != null) {
                     EpubReaderScreen(
-                        bookTitle = selectedBook.title,
-                        filePath = selectedBook.filePath,
+                        bookTitle = bookToOpen.title,
+                        filePath = bookToOpen.filePath,
                         onBackClick = {
                             readerViewModel.clearSelection()
                             mainNavController.navigate(BottomNavItem.Library.route) {

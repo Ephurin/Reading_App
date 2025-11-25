@@ -20,6 +20,9 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         selectedBook = book
     }
 
+    var currentBook by mutableStateOf<Book?>(null)
+        private set
+
     var recentBooks by mutableStateOf<List<Book>>(emptyList())
         private set
 
@@ -28,7 +31,11 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun loadBooks() {
-        recentBooks = BookStorage.loadBooks(getApplication())
+        try {
+            recentBooks = BookStorage.loadBooks(getApplication())
+        } catch (e: Exception) {
+            recentBooks = emptyList()
+        }
     }
 
     fun selectBook(context: Context, uri: android.net.Uri, fileName: String) {
@@ -44,9 +51,9 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
             if (!booksDir.exists()) {
                 booksDir.mkdirs()
             }
-            
+
             val destFile = File(booksDir, fileName)
-            
+
             // Copy file if not already exists
             if (!destFile.exists()) {
                 context.contentResolver.openInputStream(uri)?.use { input ->
@@ -66,17 +73,27 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                 title = fileName.removeSuffix(".pdf").removeSuffix(".epub"),
                 author = "Không xác định", // Default author
                 type = bookType,
-                coverImagePath = coverPath,
+                coverImagePath = null,
                 currentProgress = 0f,
-                totalPages = 0, // Will be updated when reading
+                totalPages = 0,
                 currentPage = 0
             )
 
+            // Set both selection and current book for reading
             selectedBook = book
+            currentBook = book
             addToRecentBooks(book)
+            BookStorage.saveBooks(getApplication(), recentBooks)
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    fun selectBookForReading(book: Book) {
+        selectedBook = book
+        currentBook = book
+        addToRecentBooks(book)
+        BookStorage.saveBooks(getApplication(), recentBooks)
     }
 
     private fun addToRecentBooks(book: Book) {
@@ -86,11 +103,16 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearSelection() {
         selectedBook = null
+        currentBook = null
+    }
+
+    fun clearCurrentBook() {
+        currentBook = null
     }
 
     fun updateBookProgress(bookFilePath: String, currentPage: Int, totalPages: Int) {
         val progress = if (totalPages > 0) currentPage.toFloat() / totalPages.toFloat() else 0f
-        
+
         val updatedBooks = recentBooks.map { book ->
             if (book.filePath == bookFilePath) {
                 book.copy(
@@ -102,9 +124,13 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                 book
             }
         }
-        
+
         recentBooks = updatedBooks
-        BookStorage.saveBooks(getApplication(), updatedBooks)
+        try {
+            BookStorage.saveBooks(getApplication(), updatedBooks)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         
         // Update selected book if it's the one being read
         if (selectedBook?.filePath == bookFilePath) {
