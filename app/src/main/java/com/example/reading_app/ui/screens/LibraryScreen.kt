@@ -17,6 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -132,21 +134,34 @@ fun LibraryScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(12.dp)
                         ) {
-                            // Book icon placeholder
-                            Surface(
-                                modifier = Modifier.size(80.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = MaterialTheme.shapes.small
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center
+                            // Book cover (if exists) or placeholder
+                            val coverPath = book.coverImagePath
+                            if (coverPath != null && java.io.File(coverPath).exists()) {
+                                AsyncImage(
+                                    model = coil.request.ImageRequest.Builder(LocalContext.current)
+                                        .data(java.io.File(coverPath))
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Book cover",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.size(80.dp)
+                                )
+                            } else {
+                                Surface(
+                                    modifier = Modifier.size(80.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = MaterialTheme.shapes.small
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.MenuBook,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(40.dp),
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
+                                    Box(
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.MenuBook,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(40.dp),
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
                                 }
                             }
                             
@@ -193,7 +208,7 @@ fun LibraryScreen(
                                 }
                                 Spacer(Modifier.height(6.dp))
                                 LinearProgressIndicator(
-                                    progress = { book.currentProgress.coerceIn(0f, 1f) },
+                                    progress = book.currentProgress.coerceIn(0f, 1f),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(4.dp),

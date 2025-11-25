@@ -72,7 +72,6 @@ fun BookStoreScreen(
             onClick = {
                 isLoading = true
                 error = null
-                bookStoreViewModel.searchBooks(searchQuery)
                 scope.launch {
                     try {
                         books = GoogleBooksApi.searchBooks(searchQuery)
@@ -111,7 +110,7 @@ fun BookStoreScreen(
                             .height(260.dp)
                             .clickable {
                                 bookStoreViewModel.select(book)
-                                navController.navigate("book_details")
+                                navController.navigate(route = "book_details")
                             }
                     ) {
                         Column(

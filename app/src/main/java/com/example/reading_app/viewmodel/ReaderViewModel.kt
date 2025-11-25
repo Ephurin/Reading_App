@@ -10,15 +10,15 @@ import com.example.reading_app.model.Book
 import com.example.reading_app.model.BookType
 import com.example.reading_app.utils.BookStorage
 import com.example.reading_app.utils.CoverExtractor
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import androidx.lifecycle.viewModelScope
 import java.io.File
 import java.io.FileOutputStream
 
 class ReaderViewModel(application: Application) : AndroidViewModel(application) {
     var selectedBook by mutableStateOf<Book?>(null)
 
-    fun selectBookForReading(book: Book) {
-        selectedBook = book
-    }
 
     var currentBook by mutableStateOf<Book?>(null)
         private set
@@ -35,6 +35,33 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
             recentBooks = BookStorage.loadBooks(getApplication())
         } catch (e: Exception) {
             recentBooks = emptyList()
+        }
+        // For any loaded books that lack a cover, try extracting and saving a cover image
+        val appContext = getApplication<Application>()
+        viewModelScope.launch(Dispatchers.IO) {
+            recentBooks.forEachIndexed { index, book ->
+                if (book.coverImagePath.isNullOrBlank()) {
+                    try {
+                        val file = java.io.File(book.filePath)
+                        if (file.exists()) {
+                            val extracted = when (book.type) {
+                                BookType.PDF -> CoverExtractor.extractPdfCover(appContext, file)
+                                BookType.EPUB -> CoverExtractor.extractEpubCover(appContext, file)
+                            }
+                            if (!extracted.isNullOrBlank()) {
+                                val updated = book.copy(coverImagePath = extracted)
+                                // update in-memory list and persisted storage
+                                val mutable = recentBooks.toMutableList()
+                                mutable[index] = updated
+                                recentBooks = mutable
+                                BookStorage.saveBooks(appContext, recentBooks)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
         }
     }
 
@@ -73,7 +100,7 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                 title = fileName.removeSuffix(".pdf").removeSuffix(".epub"),
                 author = "Không xác định", // Default author
                 type = bookType,
-                coverImagePath = null,
+                coverImagePath = coverPath,
                 currentProgress = 0f,
                 totalPages = 0,
                 currentPage = 0

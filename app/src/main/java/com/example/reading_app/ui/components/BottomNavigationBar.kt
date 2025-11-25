@@ -27,7 +27,7 @@ fun BottomNavigationBar(navController: NavHostController) {
             NavigationBarItem(
                 selected = currentRoute == item.route,
                 onClick = {
-                    navController.navigate(item.route) {
+                    navController.navigate(route = item.route) {
                         // Pop up to the start destination of the graph to avoid building up a large stack of destinations
                         // on the back stack as users select items
                         popUpTo(navController.graph.startDestinationId) {

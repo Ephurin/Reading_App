@@ -9,7 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+// removed unused import
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -22,7 +22,6 @@ import com.example.reading_app.ui.components.BottomNavigationBar
 import com.example.reading_app.ui.navigate.BottomNavItem
 import com.example.reading_app.ui.screens.*
 import com.example.reading_app.ui.theme.Reading_AppTheme
-import com.example.reading_app.viewmodel.BookStoreViewModel
 import com.example.reading_app.viewmodel.ReaderViewModel
 
 class MainActivity : ComponentActivity() {
@@ -49,16 +48,16 @@ fun ReadingApp() {
         composable("login") {
             LoginScreen(
                 onLoginClick = {
-                    rootNavController.navigate("main") { 
-                        popUpTo("login") { inclusive = true }
+                    rootNavController.navigate(route = "main") { 
+                        popUpTo(route = "login") { inclusive = true }
                     }
                 },
                 onNavigateToRegister = {
-                    rootNavController.navigate("register")
+                    rootNavController.navigate(route = "register")
                 },
                 onSkipClick = {
-                    rootNavController.navigate("main") {
-                        popUpTo("login") { inclusive = true }
+                    rootNavController.navigate(route = "main") {
+                        popUpTo(route = "login") { inclusive = true }
                     }
                 }
             )
@@ -79,7 +78,7 @@ fun ReadingApp() {
 fun MainScreen(rootNavController: NavHostController) {
     val mainNavController = rememberNavController()
     val readerViewModel: ReaderViewModel = viewModel()
-    val bookStoreViewModel: BookStoreViewModel = viewModel()
+    val bookStoreViewModel: com.example.reading_app.viewmodel.BookStoreViewModel = viewModel()
 
     Scaffold(
         bottomBar = {
@@ -103,12 +102,10 @@ fun MainScreen(rootNavController: NavHostController) {
                     onBookSelected = { book ->
                         readerViewModel.selectBookForReading(book)
                         when (book.type) {
-                            BookType.PDF -> mainNavController.navigate("pdf_reader")
-                            BookType.EPUB -> mainNavController.navigate("epub_reader")
+                            BookType.PDF -> mainNavController.navigate(route = "pdf_reader")
+                            BookType.EPUB -> mainNavController.navigate(route = "epub_reader")
                         }
-                    },
-                    bookStoreViewModel = bookStoreViewModel,
-                    navController = mainNavController
+                    }
                 )
             }
             composable(BottomNavItem.BookStore.route) {
@@ -119,8 +116,8 @@ fun MainScreen(rootNavController: NavHostController) {
                     onBookSelected = { book ->
                         readerViewModel.selectBookForReading(book)
                         when (book.type) {
-                            BookType.PDF -> mainNavController.navigate("pdf_reader")
-                            BookType.EPUB -> mainNavController.navigate("epub_reader")
+                            BookType.PDF -> mainNavController.navigate(route = "pdf_reader")
+                            BookType.EPUB -> mainNavController.navigate(route = "epub_reader")
                         }
                     },
                     readerViewModel = readerViewModel
@@ -131,8 +128,8 @@ fun MainScreen(rootNavController: NavHostController) {
             }
             composable(BottomNavItem.Profile.route) {
                 ProfileScreen(onLogoutClick = {
-                    rootNavController.navigate("login") {
-                        popUpTo("main") { inclusive = true }
+                    rootNavController.navigate(route = "login") {
+                        popUpTo(route = "main") { inclusive = true }
                     }
                 })
             }
@@ -145,8 +142,8 @@ fun MainScreen(rootNavController: NavHostController) {
                         filePath = bookToOpen.filePath,
                         onBackClick = {
                             readerViewModel.clearSelection()
-                            mainNavController.navigate(BottomNavItem.Library.route) {
-                                popUpTo(BottomNavItem.Library.route) { inclusive = true }
+                            mainNavController.navigate(route = BottomNavItem.Library.route) {
+                                popUpTo(route = BottomNavItem.Library.route) { inclusive = true }
                             }
                         },
                         readerViewModel = readerViewModel
@@ -164,8 +161,8 @@ fun MainScreen(rootNavController: NavHostController) {
                         filePath = bookToOpen.filePath,
                         onBackClick = {
                             readerViewModel.clearSelection()
-                            mainNavController.navigate(BottomNavItem.Library.route) {
-                                popUpTo(BottomNavItem.Library.route) { inclusive = true }
+                            mainNavController.navigate(route = BottomNavItem.Library.route) {
+                                popUpTo(route = BottomNavItem.Library.route) { inclusive = true }
                             }
                         },
                         readerViewModel = readerViewModel
