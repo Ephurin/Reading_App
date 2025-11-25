@@ -72,6 +72,7 @@ fun BookStoreScreen(
             onClick = {
                 isLoading = true
                 error = null
+                bookStoreViewModel.searchBooks(searchQuery)
                 scope.launch {
                     try {
                         books = GoogleBooksApi.searchBooks(searchQuery)
