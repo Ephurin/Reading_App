@@ -133,7 +133,9 @@ fun MainScreen(rootNavController: NavHostController) {
                         filePath = selectedBook.filePath,
                         onBackClick = {
                             readerViewModel.clearSelection()
-                            mainNavController.popBackStack()
+                            mainNavController.navigate(BottomNavItem.Library.route) {
+                                popUpTo(BottomNavItem.Library.route) { inclusive = true }
+                            }
                         },
                         readerViewModel = readerViewModel
                     )
@@ -150,7 +152,9 @@ fun MainScreen(rootNavController: NavHostController) {
                         filePath = selectedBook.filePath,
                         onBackClick = {
                             readerViewModel.clearSelection()
-                            mainNavController.popBackStack()
+                            mainNavController.navigate(BottomNavItem.Library.route) {
+                                popUpTo(BottomNavItem.Library.route) { inclusive = true }
+                            }
                         },
                         readerViewModel = readerViewModel
                     )
