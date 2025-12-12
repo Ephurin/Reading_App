@@ -6,11 +6,15 @@
 - Đọc PDF: Sử dụng `PdfRenderer` hiển thị theo trang; lớp phủ `Canvas` cho vẽ (bút) và ghi chú; lưu chú thích per-page; hỗ trợ đổi màu bút, xoá nét, thêm marker ghi chú.
 - Dịch ngôn ngữ (EPUB): Tích hợp ML Kit (Language Identification + Translation) cho dịch offline; tự động nhận dạng nguồn; kiểm tra/trì hoãn mở dialog cho tới khi dịch xong; bộ nhớ đệm translator để giảm thời gian chờ về sau.
 - Quản lý dữ liệu: Lưu highlight EPUB và annotation PDF theo dạng JSON, đồng bộ theo id sách/trang; tải lại khi mở.
+- Tìm kiếm sách trực tuyến: Cho phép tìm và tải về sách từ nguồn online, hỗ trợ lọc theo tiêu chí (tên sách, tác giả), hiển thị kết quả và tiến trình tải.
 
 Luồng điển hình EPUB:
 1) Người dùng chọn đoạn văn → 2) WebView gửi range về app → 3) Thanh công cụ nổi hiển thị → 4) Chọn Highlight/Note/Translate → 5) Với Translate: xác định ngôn ngữ, đảm bảo model sẵn sàng, dịch và hiển thị `TranslationDialog` → 6) Người dùng sao chép/khoá lưu nếu cần.
 
 Luồng điển hình PDF:
+Luồng tìm kiếm sách trực tuyến:
+1) Người dùng mở màn tìm kiếm → 2) Nhập từ khoá/tác giả → 3) Gọi API nguồn sách (HTTP) và nhận danh sách → 4) Hiển thị kết quả với trạng thái tải/ lỗi → 5) Chọn sách để xem chi tiết/ tải về → 6) Lưu vào thư viện cục bộ và đồng bộ metadata.
+
 1) Mở trang → 2) Canvas hiển thị annotation đã lưu → 3) Người dùng vẽ/đổi màu/xoá → 4) Nhấn vào vị trí để thêm ghi chú → 5) Lưu theo trang.
 
 ## 2.2. Thiết kế giao diện (UI/UX)
@@ -29,12 +33,17 @@ Luồng điển hình PDF:
   - Kiểm tra/đảm bảo model dịch đã tải; xoá ràng buộc Wi‑Fi; cache translator theo cặp (src→dst).
   - Dời thời điểm mở dialog cho tới khi dịch xong; dùng `LaunchedEffect` để đồng bộ trạng thái khi người dùng chọn lại ngôn ngữ.
 - Lưu trữ JSON: Quản lý đọc/ghi an toàn, đặt theo bookId/pageIndex để tránh xung đột; khởi động app sẽ nạp lại dữ liệu đã lưu.
+- Tìm kiếm trực tuyến:
+  - API client dùng `OkHttp`/`Retrofit` với coroutine, parse JSON (ví dụ `Moshi`/`kotlinx.serialization`).
+  - Bộ lọc từ khoá/tác giả, phân trang; cache kết quả tạm thời để cuộn mượt.
+  - Tải xuống file EPUB/PDF có thanh tiến trình, kiểm tra quyền ghi bộ nhớ, xác minh checksum/ kích thước.
 
 ## 2.4. Điểm mới và giá trị mang lại
 
 - Trải nghiệm dịch tức thời trong EPUB, hoạt động offline sau lần tải đầu.
 - Overlay PDF trực quan, phù hợp ghi chú học tập/đọc tài liệu chuyên môn.
 - Kiến trúc tách lớp quản lý dịch (TranslationManager), highlight/annotation manager → dễ bảo trì, mở rộng (ví dụ đồng bộ đám mây).
+- Tìm kiếm và tải sách trực tuyến tích hợp, rút ngắn thời gian nhập tài liệu cho người dùng.
 
 ## 2.5. Khó khăn và cách khắc phục
 
@@ -42,6 +51,8 @@ Luồng điển hình PDF:
 - Đồng bộ UI Compose với kết quả dịch: Sử dụng `remember` + `LaunchedEffect` để cập nhật khi người dùng đổi ngôn ngữ đích; tránh dialog mở trước khi sẵn sàng.
 - Phục hồi highlight EPUB qua WebView: Tách script khôi phục, chuẩn hoá selector, xử lý các trường hợp DOM thay đổi.
 - Hiệu năng PDF overlay: Giới hạn số path vẽ mỗi lần render, batch lưu, và tối ưu hit‑test cho ghi chú.
+- Ổn định nguồn sách online: Chuẩn hoá dữ liệu từ nhiều API, thêm cơ chế retry/backoff, hiển thị lỗi thân thiện và fallback khi kết nối yếu.
+- Bảo toàn tính toàn vẹn file tải xuống: Kiểm tra checksum/ kích thước, xử lý resume tải khi gián đoạn.
 
 ## 2.6. Đánh giá và hướng phát triển
 
