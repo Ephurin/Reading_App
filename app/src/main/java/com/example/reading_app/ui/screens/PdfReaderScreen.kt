@@ -4,8 +4,11 @@ import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -19,13 +22,21 @@ import androidx.compose.material.icons.automirrored.filled.NavigateBefore
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Draw
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Note
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -34,8 +45,15 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.reading_app.model.AnnotationPoint
+import com.example.reading_app.model.AnnotationPosition
+import com.example.reading_app.model.AnnotationType
 import com.example.reading_app.model.Bookmark
+import com.example.reading_app.model.DrawingPath
+import com.example.reading_app.model.PdfAnnotation
+import com.example.reading_app.ui.components.AddNoteDialog
 import com.example.reading_app.utils.BookmarkManager
+import com.example.reading_app.utils.PdfAnnotationManager
 import com.example.reading_app.viewmodel.ReaderViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -65,12 +83,31 @@ fun PdfReaderScreen(
     var isCurrentPageBookmarked by remember { mutableStateOf(false) }
     var showBookmarksDialog by remember { mutableStateOf(false) }
     
+    // Annotation-related states
+    var annotations by remember { mutableStateOf<List<PdfAnnotation>>(emptyList()) }
+    var isDrawingMode by remember { mutableStateOf(false) }
+    var isNoteMode by remember { mutableStateOf(false) }
+    var currentDrawingPath by remember { mutableStateOf<MutableList<Offset>>(mutableListOf()) }
+    var allDrawingPaths by remember { mutableStateOf<List<DrawingPath>>(emptyList()) }
+    var drawingColor by remember { mutableStateOf("#000000") }
+    var showNoteDialog by remember { mutableStateOf(false) }
+    var notePosition by remember { mutableStateOf<Offset?>(null) }
+    var showAnnotationsMenu by remember { mutableStateOf(false) }
+    
     // Force light mode for PDF reader
     val lightColorScheme = lightColorScheme()
     
     // Load bookmarks for this book
     LaunchedEffect(filePath) {
         bookmarks = BookmarkManager.getBookmarksForBook(context, filePath)
+    }
+    
+    // Load annotations for current page
+    LaunchedEffect(filePath, currentPage) {
+        annotations = PdfAnnotationManager.getAnnotationsForPage(context, filePath, currentPage)
+        // Load drawing paths from annotations
+        allDrawingPaths = annotations.filter { it.type == AnnotationType.DRAWING }
+            .flatMap { it.drawingPaths }
     }
     
     // Check if current page is bookmarked
@@ -142,6 +179,17 @@ fun PdfReaderScreen(
                         
                         // Update progress in ViewModel
                         readerViewModel.updateBookProgress(filePath, pageIndex + 1, totalPages)
+                        
+                        // Reset drawing and annotation states when changing pages
+                        isDrawingMode = false
+                        isNoteMode = false
+                        currentDrawingPath.clear()
+                        notePosition = null
+                        
+                        // Load annotations for new page
+                        annotations = PdfAnnotationManager.getAnnotationsForPage(context, filePath, pageIndex)
+                        allDrawingPaths = annotations.filter { it.type == AnnotationType.DRAWING }
+                            .flatMap { it.drawingPaths }
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -181,6 +229,34 @@ fun PdfReaderScreen(
                     }
                 },
                 actions = {
+                    // Drawing mode button
+                    IconButton(
+                        onClick = {
+                            isDrawingMode = !isDrawingMode
+                            isNoteMode = false
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Draw,
+                            contentDescription = "Drawing Mode",
+                            tint = if (isDrawingMode) lightColorScheme.primary else lightColorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    // Note mode button
+                    IconButton(
+                        onClick = {
+                            isNoteMode = !isNoteMode
+                            isDrawingMode = false
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Note,
+                            contentDescription = "Add Note",
+                            tint = if (isNoteMode) lightColorScheme.primary else lightColorScheme.onSurfaceVariant
+                        )
+                    }
+                    
                     // Bookmark button
                     IconButton(
                         onClick = {
@@ -297,13 +373,8 @@ fun PdfReaderScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
-                            .pointerInput(Unit) {
-                                detectTransformGestures { _, _, zoom, _ ->
-                                    scale = (scale * zoom).coerceIn(0.5f, 3f)
-                                }
-                            },
-                        contentAlignment = Alignment.Center
                     ) {
+                        // PDF Image
                         Image(
                             bitmap = currentBitmap!!.asImageBitmap(),
                             contentDescription = "PDF Page",
@@ -313,9 +384,176 @@ fun PdfReaderScreen(
                                     scaleX = scale,
                                     scaleY = scale
                                 )
-                                .padding(16.dp),
+                                .pointerInput(isDrawingMode, isNoteMode) {
+                                    if (isDrawingMode) {
+                                        // Drawing mode
+                                        detectDragGestures(
+                                            onDragStart = { offset ->
+                                                currentDrawingPath.clear()
+                                                currentDrawingPath.add(offset)
+                                            },
+                                            onDrag = { change, _ ->
+                                                currentDrawingPath.add(change.position)
+                                            },
+                                            onDragEnd = {
+                                                // Save the drawing path
+                                                if (currentDrawingPath.isNotEmpty()) {
+                                                    val path = DrawingPath(
+                                                        points = currentDrawingPath.map {
+                                                            AnnotationPoint(it.x, it.y)
+                                                        },
+                                                        color = drawingColor,
+                                                        strokeWidth = 5f
+                                                    )
+                                                    allDrawingPaths = allDrawingPaths + path
+                                                    
+                                                    // Save to storage
+                                                    scope.launch {
+                                                        val annotation = PdfAnnotation(
+                                                            bookFilePath = filePath,
+                                                            pageNumber = currentPage,
+                                                            type = AnnotationType.DRAWING,
+                                                            color = drawingColor,
+                                                            drawingPaths = listOf(path)
+                                                        )
+                                                        PdfAnnotationManager.saveAnnotation(context, annotation)
+                                                        annotations = PdfAnnotationManager.getAnnotationsForPage(context, filePath, currentPage)
+                                                    }
+                                                    
+                                                    currentDrawingPath.clear()
+                                                }
+                                            }
+                                        )
+                                    } else if (isNoteMode) {
+                                        // Note mode - tap to add note
+                                        detectTapGestures { offset ->
+                                            notePosition = offset
+                                            showNoteDialog = true
+                                        }
+                                    } else {
+                                        // Normal mode - zoom
+                                        detectTransformGestures { _, _, zoom, _ ->
+                                            scale = (scale * zoom).coerceIn(0.5f, 3f)
+                                        }
+                                    }
+                                },
                             contentScale = ContentScale.FillWidth
                         )
+                        
+                        // Drawing overlay
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(currentBitmap!!.width.toFloat() / currentBitmap!!.height)
+                                .graphicsLayer(
+                                    scaleX = scale,
+                                    scaleY = scale
+                                )
+                        ) {
+                            // Draw saved paths
+                            allDrawingPaths.forEach { drawingPath ->
+                                if (drawingPath.points.size > 1) {
+                                    val path = Path()
+                                    path.moveTo(drawingPath.points[0].x, drawingPath.points[0].y)
+                                    for (i in 1 until drawingPath.points.size) {
+                                        path.lineTo(drawingPath.points[i].x, drawingPath.points[i].y)
+                                    }
+                                    drawPath(
+                                        path = path,
+                                        color = Color(android.graphics.Color.parseColor(drawingPath.color)),
+                                        style = Stroke(
+                                            width = drawingPath.strokeWidth,
+                                            cap = StrokeCap.Round,
+                                            join = StrokeJoin.Round
+                                        )
+                                    )
+                                }
+                            }
+                            
+                            // Draw current path being drawn
+                            if (currentDrawingPath.size > 1) {
+                                val path = Path()
+                                path.moveTo(currentDrawingPath[0].x, currentDrawingPath[0].y)
+                                for (i in 1 until currentDrawingPath.size) {
+                                    path.lineTo(currentDrawingPath[i].x, currentDrawingPath[i].y)
+                                }
+                                drawPath(
+                                    path = path,
+                                    color = Color(android.graphics.Color.parseColor(drawingColor)),
+                                    style = Stroke(
+                                        width = 5f,
+                                        cap = StrokeCap.Round,
+                                        join = StrokeJoin.Round
+                                    )
+                                )
+                            }
+                            
+                            // Draw note indicators
+                            annotations.filter { it.type == AnnotationType.NOTE }.forEach { annotation ->
+                                annotation.position?.let { pos ->
+                                    drawCircle(
+                                        color = Color(android.graphics.Color.parseColor(annotation.color)),
+                                        radius = 15f,
+                                        center = Offset(pos.x, pos.y)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Drawing toolbar
+                    if (isDrawingMode) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.BottomEnd
+                        ) {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = lightColorScheme.surface
+                                ),
+                                elevation = CardDefaults.cardElevation(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    // Color options
+                                    listOf("#000000", "#FF0000", "#0000FF", "#00FF00", "#FFA500").forEach { color ->
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .background(
+                                                    Color(android.graphics.Color.parseColor(color)),
+                                                    shape = MaterialTheme.shapes.small
+                                                )
+                                                .pointerInput(Unit) {
+                                                    detectTapGestures {
+                                                        drawingColor = color
+                                                    }
+                                                }
+                                        )
+                                    }
+                                    
+                                    // Clear button
+                                    Button(
+                                        onClick = {
+                                            scope.launch {
+                                                // Delete all drawings from current page
+                                                annotations.filter { it.type == AnnotationType.DRAWING }.forEach {
+                                                    PdfAnnotationManager.deleteAnnotation(context, it.id)
+                                                }
+                                                allDrawingPaths = emptyList()
+                                                annotations = PdfAnnotationManager.getAnnotationsForPage(context, filePath, currentPage)
+                                            }
+                                        }
+                                    ) {
+                                        Text("Clear")
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 else -> {
@@ -328,6 +566,34 @@ fun PdfReaderScreen(
                 }
             }
         }
+    }
+    
+    // Note Dialog
+    if (showNoteDialog) {
+        AddNoteDialog(
+            initialNote = "",
+            onSave = { note ->
+                notePosition?.let { pos ->
+                    scope.launch {
+                        val annotation = PdfAnnotation(
+                            bookFilePath = filePath,
+                            pageNumber = currentPage,
+                            type = AnnotationType.NOTE,
+                            note = note,
+                            color = "#FFFF00",
+                            position = AnnotationPosition(pos.x, pos.y)
+                        )
+                        PdfAnnotationManager.saveAnnotation(context, annotation)
+                        annotations = PdfAnnotationManager.getAnnotationsForPage(context, filePath, currentPage)
+                    }
+                }
+                notePosition = null
+            },
+            onDismiss = {
+                showNoteDialog = false
+                notePosition = null
+            }
+        )
     }
     
     // Go to Page Dialog

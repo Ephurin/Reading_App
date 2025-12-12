@@ -1,6 +1,8 @@
 package com.example.reading_app.ui.screens
 
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -12,7 +14,11 @@ import androidx.compose.material.icons.automirrored.filled.NavigateBefore
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.FormatColorFill
+import androidx.compose.material.icons.filled.HighlightAlt
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Note
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,13 +30,34 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.reading_app.model.Bookmark
+import com.example.reading_app.model.Highlight
+import com.example.reading_app.ui.components.AddNoteDialog
+import com.example.reading_app.ui.components.HighlightColorPicker
+import com.example.reading_app.ui.components.HighlightListDialog
 import com.example.reading_app.utils.BookmarkManager
+import com.example.reading_app.utils.HighlightManager
 import com.example.reading_app.viewmodel.ReaderViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.zip.ZipInputStream
+
+// JavaScript Interface for handling text selection and highlight clicks
+class EpubJavaScriptInterface(
+    private val onTextSelected: (String, String) -> Unit,
+    private val onHighlightClicked: (String) -> Unit
+) {
+    @JavascriptInterface
+    fun textSelected(text: String, rangeData: String) {
+        onTextSelected(text, rangeData)
+    }
+    
+    @JavascriptInterface
+    fun onHighlightClick(highlightId: String) {
+        onHighlightClicked(highlightId)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,14 +84,85 @@ fun EpubReaderScreen(
     var chapterFiles by remember { mutableStateOf<List<File>>(emptyList()) }
     var currentChapterFile by remember { mutableStateOf<File?>(null) }
     
+    // Highlight-related states
+    var highlights by remember { mutableStateOf<List<Highlight>>(emptyList()) }
+    var showColorPicker by remember { mutableStateOf(false) }
+    var showNoteDialog by remember { mutableStateOf(false) }
+    var showHighlightsDialog by remember { mutableStateOf(false) }
+    var selectedText by remember { mutableStateOf("") }
+    var selectedRange by remember { mutableStateOf<Map<String, Any>?>(null) }
+    var selectedHighlight by remember { mutableStateOf<Highlight?>(null) }
+    var webView by remember { mutableStateOf<WebView?>(null) }
+    var selectedColor by remember { mutableStateOf("#FFFF00") }
+    var showHighlightToolbar by remember { mutableStateOf(false) }
+    var selectionJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    
     // Load bookmarks for this book
     LaunchedEffect(filePath) {
         bookmarks = BookmarkManager.getBookmarksForBook(context, filePath)
     }
     
+    // Load highlights for current chapter
+    LaunchedEffect(filePath, currentChapterIndex) {
+        highlights = HighlightManager.getHighlightsForChapter(context, filePath, currentChapterIndex)
+    }
+    
     // Check if current chapter is bookmarked
     LaunchedEffect(currentChapterIndex, bookmarks) {
         isCurrentChapterBookmarked = BookmarkManager.isBookmarked(context, filePath, currentChapterIndex)
+    }
+    
+    // Function to apply highlights to the current chapter
+    val applyHighlights: () -> Unit = {
+        webView?.let { web ->
+            highlights.forEach { highlight ->
+                val jsCode = """
+                    (function() {
+                        try {
+                            const highlightId = '${highlight.id}';
+                            const color = '${highlight.color}';
+                            const text = `${highlight.selectedText.replace("`", "\\`")}`;
+                            
+                            // Find and highlight the text
+                            if (window.find) {
+                                // Clear previous selection
+                                window.getSelection().removeAllRanges();
+                                
+                                // Find the text
+                                if (window.find(text)) {
+                                    const selection = window.getSelection();
+                                    if (selection.rangeCount > 0) {
+                                        const range = selection.getRangeAt(0);
+                                        const span = document.createElement('span');
+                                        span.className = 'epub-highlight';
+                                        span.setAttribute('data-highlight-id', highlightId);
+                                        span.style.backgroundColor = color;
+                                        span.style.cursor = 'pointer';
+                                        span.onclick = function() {
+                                            AndroidInterface.onHighlightClick(highlightId);
+                                        };
+                                        
+                                        try {
+                                            range.surroundContents(span);
+                                        } catch(e) {
+                                            // If surroundContents fails, use extractContents
+                                            const contents = range.extractContents();
+                                            span.appendChild(contents);
+                                            range.insertNode(span);
+                                        }
+                                        selection.removeAllRanges();
+                                    }
+                                }
+                            }
+                        } catch(e) {
+                            console.error('Error applying highlight:', e);
+                        }
+                    })();
+                """.trimIndent()
+                
+                web.evaluateJavascript(jsCode, null)
+            }
+        }
     }
     
     // Cleanup extracted files when screen is disposed
@@ -179,6 +277,14 @@ fun EpubReaderScreen(
             
             // Update progress in ViewModel
             readerViewModel.updateBookProgress(filePath, index + 1, chapters.size)
+            
+            // Reload highlights for new chapter
+            scope.launch {
+                highlights = HighlightManager.getHighlightsForChapter(context, filePath, index)
+                // Apply highlights after a short delay to ensure WebView has loaded
+                kotlinx.coroutines.delay(500)
+                applyHighlights()
+            }
         }
     }
 
@@ -213,6 +319,16 @@ fun EpubReaderScreen(
                     }
                 },
                 actions = {
+                    // Highlight button
+                    IconButton(
+                        onClick = { showHighlightsDialog = true }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.HighlightAlt,
+                            contentDescription = "View Highlights"
+                        )
+                    }
+                    
                     // Bookmark button
                     IconButton(
                         onClick = {
@@ -356,7 +472,7 @@ fun EpubReaderScreen(
                     AndroidView(
                         factory = { ctx ->
                             WebView(ctx).apply {
-                                settings.javaScriptEnabled = false
+                                settings.javaScriptEnabled = true
                                 settings.builtInZoomControls = true
                                 settings.displayZoomControls = false
                                 settings.textZoom = 110
@@ -365,9 +481,94 @@ fun EpubReaderScreen(
                                 settings.allowFileAccess = true
                                 settings.allowContentAccess = true
                                 settings.domStorageEnabled = true
+                                
+                                // Add JavaScript interface
+                                addJavascriptInterface(
+                                    EpubJavaScriptInterface(
+                                        onTextSelected = { text, range ->
+                                            scope.launch(Dispatchers.Main) {
+                                                // Cancel any pending selection job
+                                                selectionJob?.cancel()
+                                                
+                                                // Store the selection and show toolbar immediately
+                                                selectedText = text
+                                                selectedRange = mapOf("text" to text, "rangeData" to range)
+                                                showHighlightToolbar = true
+                                            }
+                                        },
+                                        onHighlightClicked = { highlightId ->
+                                            scope.launch(Dispatchers.Main) {
+                                                val highlight = highlights.find { it.id == highlightId }
+                                                if (highlight != null) {
+                                                    selectedHighlight = highlight
+                                                    showNoteDialog = true
+                                                }
+                                            }
+                                        }
+                                    ),
+                                    "AndroidInterface"
+                                )
+                                
+                                webViewClient = object : WebViewClient() {
+                                    override fun onPageFinished(view: WebView?, url: String?) {
+                                        super.onPageFinished(view, url)
+                                        
+                                        // Inject text selection handler
+                                        view?.evaluateJavascript("""
+                                            (function() {
+                                                let selectionTimeout = null;
+                                                
+                                                // Handle mouse/touch release
+                                                document.addEventListener('mouseup', function() {
+                                                    clearTimeout(selectionTimeout);
+                                                    selectionTimeout = setTimeout(function() {
+                                                        const selection = window.getSelection();
+                                                        const text = selection.toString().trim();
+                                                        if (text.length > 0) {
+                                                            const range = selection.getRangeAt(0);
+                                                            const rangeData = JSON.stringify({
+                                                                startContainer: range.startContainer.nodeName,
+                                                                startOffset: range.startOffset,
+                                                                endContainer: range.endContainer.nodeName,
+                                                                endOffset: range.endOffset
+                                                            });
+                                                            AndroidInterface.textSelected(text, rangeData);
+                                                        }
+                                                    }, 200);
+                                                });
+                                                
+                                                document.addEventListener('touchend', function() {
+                                                    clearTimeout(selectionTimeout);
+                                                    selectionTimeout = setTimeout(function() {
+                                                        const selection = window.getSelection();
+                                                        const text = selection.toString().trim();
+                                                        if (text.length > 0) {
+                                                            const range = selection.getRangeAt(0);
+                                                            const rangeData = JSON.stringify({
+                                                                startContainer: range.startContainer.nodeName,
+                                                                startOffset: range.startOffset,
+                                                                endContainer: range.endContainer.nodeName,
+                                                                endOffset: range.endOffset
+                                                            });
+                                                            AndroidInterface.textSelected(text, rangeData);
+                                                        }
+                                                    }, 200);
+                                                });
+                                            })();
+                                        """.trimIndent(), null)
+                                        
+                                        // Apply highlights after page loads
+                                        scope.launch {
+                                            kotlinx.coroutines.delay(300)
+                                            applyHighlights()
+                                        }
+                                    }
+                                }
+                                
+                                webView = this
                             }
                         },
-                        update = { webView ->
+                        update = { web ->
                             // Use base URL pointing to the extracted directory
                             val baseUrl = currentChapterFile?.parentFile?.let { 
                                 "file://${it.absolutePath}/"
@@ -375,7 +576,7 @@ fun EpubReaderScreen(
                                 "file://${it.absolutePath}/" 
                             } ?: "file:///"
                             
-                            webView.loadDataWithBaseURL(
+                            web.loadDataWithBaseURL(
                                 baseUrl,
                                 chapterContent,
                                 "text/html; charset=UTF-8",
@@ -385,6 +586,73 @@ fun EpubReaderScreen(
                         },
                         modifier = Modifier.fillMaxSize()
                     )
+                }
+            }
+            
+            // Floating Highlight Toolbar - appears when text is selected
+            if (showHighlightToolbar && selectedText.isNotEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        elevation = CardDefaults.cardElevation(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "\"${selectedText.take(30)}${if (selectedText.length > 30) "..." else ""}\"",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1
+                            )
+                            
+                            Button(
+                                onClick = {
+                                    showHighlightToolbar = false
+                                    showColorPicker = true
+                                },
+                                modifier = Modifier.padding(start = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FormatColorFill,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("Highlight")
+                            }
+                            
+                            IconButton(
+                                onClick = {
+                                    showHighlightToolbar = false
+                                    selectedText = ""
+                                    selectedRange = null
+                                    // Clear selection in WebView
+                                    webView?.evaluateJavascript(
+                                        "window.getSelection().removeAllRanges();",
+                                        null
+                                    )
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Cancel"
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -517,6 +785,97 @@ fun EpubReaderScreen(
                     Text("Close")
                 }
             }
+        )
+    }
+    
+    // Color Picker Dialog
+    if (showColorPicker) {
+        HighlightColorPicker(
+            onColorSelected = { color ->
+                selectedColor = color
+                showColorPicker = false
+                
+                // Create highlight
+                scope.launch {
+                    val highlight = Highlight(
+                        bookFilePath = filePath,
+                        chapterIndex = currentChapterIndex,
+                        selectedText = selectedText,
+                        rangeStart = "",
+                        rangeEnd = "",
+                        startOffset = 0,
+                        endOffset = 0,
+                        color = color
+                    )
+                    HighlightManager.saveHighlight(context, highlight)
+                    highlights = HighlightManager.getHighlightsForChapter(context, filePath, currentChapterIndex)
+                    
+                    // Apply the new highlight immediately
+                    applyHighlights()
+                    
+                    // Ask if user wants to add a note
+                    selectedHighlight = highlight
+                    showNoteDialog = true
+                }
+            },
+            onDismiss = { showColorPicker = false }
+        )
+    }
+    
+    // Add/Edit Note Dialog
+    if (showNoteDialog && selectedHighlight != null) {
+        AddNoteDialog(
+            initialNote = selectedHighlight?.note ?: "",
+            onSave = { note ->
+                scope.launch {
+                    selectedHighlight?.let { highlight ->
+                        HighlightManager.updateHighlightNote(context, highlight.id, note)
+                        highlights = HighlightManager.getHighlightsForChapter(context, filePath, currentChapterIndex)
+                    }
+                }
+                selectedHighlight = null
+            },
+            onDismiss = {
+                showNoteDialog = false
+                selectedHighlight = null
+            }
+        )
+    }
+    
+    // Highlights List Dialog
+    if (showHighlightsDialog) {
+        HighlightListDialog(
+            highlights = highlights,
+            onHighlightClick = { highlight ->
+                // Scroll to highlight (simplified - would need more complex implementation)
+                showHighlightsDialog = false
+            },
+            onEditNote = { highlight ->
+                selectedHighlight = highlight
+                showHighlightsDialog = false
+                showNoteDialog = true
+            },
+            onDelete = { highlight ->
+                scope.launch {
+                    HighlightManager.deleteHighlight(context, highlight.id)
+                    highlights = HighlightManager.getHighlightsForChapter(context, filePath, currentChapterIndex)
+                    
+                    // Remove highlight from WebView
+                    webView?.evaluateJavascript("""
+                        (function() {
+                            const highlightSpan = document.querySelector('[data-highlight-id="${highlight.id}"]');
+                            if (highlightSpan) {
+                                const parent = highlightSpan.parentNode;
+                                while (highlightSpan.firstChild) {
+                                    parent.insertBefore(highlightSpan.firstChild, highlightSpan);
+                                }
+                                parent.removeChild(highlightSpan);
+                            }
+                        })();
+                    """.trimIndent(), null)
+                }
+            },
+            onDismiss = { showHighlightsDialog = false }
         )
     }
 }
