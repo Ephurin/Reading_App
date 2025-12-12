@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.HighlightAlt
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Note
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,8 +35,13 @@ import com.example.reading_app.model.Highlight
 import com.example.reading_app.ui.components.AddNoteDialog
 import com.example.reading_app.ui.components.HighlightColorPicker
 import com.example.reading_app.ui.components.HighlightListDialog
+import com.example.reading_app.ui.components.ModelDownloadDialog
+import com.example.reading_app.ui.components.TranslationDialog
 import com.example.reading_app.utils.BookmarkManager
 import com.example.reading_app.utils.HighlightManager
+import com.example.reading_app.utils.TranslationManager
+import com.example.reading_app.utils.TranslationResult
+import com.google.mlkit.nl.translate.TranslateLanguage
 import com.example.reading_app.viewmodel.ReaderViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -96,6 +102,13 @@ fun EpubReaderScreen(
     var selectedColor by remember { mutableStateOf("#FFFF00") }
     var showHighlightToolbar by remember { mutableStateOf(false) }
     var selectionJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    
+    // Translation-related states
+    var showTranslationDialog by remember { mutableStateOf(false) }
+    var translationResult by remember { mutableStateOf<TranslationResult?>(null) }
+    var isTranslating by remember { mutableStateOf(false) }
+    var targetLanguage by remember { mutableStateOf(TranslateLanguage.ENGLISH) }
+    var showModelDownloadDialog by remember { mutableStateOf(false) }
     
     // Load bookmarks for this book
     LaunchedEffect(filePath) {
@@ -623,7 +636,7 @@ fun EpubReaderScreen(
                                     showHighlightToolbar = false
                                     showColorPicker = true
                                 },
-                                modifier = Modifier.padding(start = 8.dp)
+                                modifier = Modifier.padding(start = 4.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.FormatColorFill,
@@ -632,6 +645,55 @@ fun EpubReaderScreen(
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text("Highlight")
+                            }
+                            
+                            Button(
+                                onClick = {
+                                    showHighlightToolbar = false
+                                    
+                                    // Check if model is downloaded first
+                                    scope.launch {
+                                        try {
+                                            // Quick check: detect source language
+                                            val detectedLang = TranslationManager.detectLanguage(selectedText)
+                                            
+                                            // Check if models are downloaded
+                                            val sourceModelExists = TranslationManager.isLanguageModelDownloaded(detectedLang)
+                                            val targetModelExists = TranslationManager.isLanguageModelDownloaded(targetLanguage)
+                                            
+                                            if (!sourceModelExists || !targetModelExists) {
+                                                // Show download prompt
+                                                showModelDownloadDialog = true
+                                            } else {
+                                                // Models exist, translate immediately
+                                                isTranslating = true
+                                                translationResult = null
+                                                
+                                                val result = TranslationManager.translate(
+                                                    text = selectedText,
+                                                    targetLanguageCode = targetLanguage
+                                                )
+                                                translationResult = result
+                                                isTranslating = false
+                                                
+                                                // Only show dialog after translation is complete
+                                                showTranslationDialog = true
+                                            }
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                            isTranslating = false
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.padding(start = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Translate,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("Translate")
                             }
                             
                             IconButton(
@@ -876,6 +938,105 @@ fun EpubReaderScreen(
                 }
             },
             onDismiss = { showHighlightsDialog = false }
+        )
+    }
+    
+    // Translation Dialog
+    if (showTranslationDialog) {
+        TranslationDialog(
+            selectedText = selectedText,
+            initialResult = translationResult,
+            onDismiss = {
+                showTranslationDialog = false
+                translationResult = null
+                selectedText = ""
+                selectedRange = null
+                // Clear selection in WebView
+                webView?.evaluateJavascript(
+                    "window.getSelection().removeAllRanges();",
+                    null
+                )
+            },
+            onSaveAsNote = { translatedText ->
+                scope.launch {
+                    // Create a highlight with the translation as a note
+                    val highlight = Highlight(
+                        bookFilePath = filePath,
+                        chapterIndex = currentChapterIndex,
+                        selectedText = selectedText,
+                        rangeStart = "",
+                        rangeEnd = "",
+                        startOffset = 0,
+                        endOffset = 0,
+                        color = "#ADD8E6", // Light blue for translations
+                        note = "Translation: $translatedText"
+                    )
+                    HighlightManager.saveHighlight(context, highlight)
+                    highlights = HighlightManager.getHighlightsForChapter(context, filePath, currentChapterIndex)
+                    applyHighlights()
+                }
+            },
+            onRetranslate = { newTargetLanguage ->
+                targetLanguage = newTargetLanguage
+                
+                // Reset state before retranslating
+                translationResult = null
+                isTranslating = true
+                
+                scope.launch {
+                    try {
+                        val result = TranslationManager.translate(
+                            text = selectedText,
+                            targetLanguageCode = newTargetLanguage
+                        )
+                        translationResult = result
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    } finally {
+                        isTranslating = false
+                    }
+                }
+            }
+        )
+    }
+    
+    // Model Download Dialog
+    if (showModelDownloadDialog) {
+        ModelDownloadDialog(
+            targetLanguage = TranslationManager.getLanguageName(targetLanguage),
+            targetLanguageCode = targetLanguage,
+            onDownload = {
+                showModelDownloadDialog = false
+                // After download, start translation
+                translationResult = null
+                isTranslating = true
+                
+                scope.launch {
+                    try {
+                        val result = TranslationManager.translate(
+                            text = selectedText,
+                            targetLanguageCode = targetLanguage
+                        )
+                        translationResult = result
+                        isTranslating = false
+                        
+                        // Only show dialog after translation is complete
+                        showTranslationDialog = true
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        isTranslating = false
+                    }
+                }
+            },
+            onCancel = {
+                showModelDownloadDialog = false
+                selectedText = ""
+                selectedRange = null
+                webView?.evaluateJavascript(
+                    "window.getSelection().removeAllRanges();",
+                    null
+                )
+            }
         )
     }
 }

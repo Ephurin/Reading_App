@@ -65,6 +65,10 @@ dependencies {
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
     
+    // ML Kit for language detection and translation
+    implementation("com.google.mlkit:language-id:17.0.6")
+    implementation("com.google.mlkit:translate:17.0.3")
+    
     // For parsing EPUB (zip format)
     // Using standard Java libraries (already included)
     
