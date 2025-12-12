@@ -14,16 +14,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.reading_app.auth.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
-    onRegisterClick: () -> Unit,
-    onNavigateBack: () -> Unit
+    onRegisterSuccess: () -> Unit,
+    onNavigateBack: () -> Unit,
+    authViewModel: AuthViewModel = viewModel()
 ) {
-    var username by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    val username by authViewModel.username.collectAsState()
+    val email by authViewModel.email.collectAsState()
+    val password by authViewModel.password.collectAsState()
 
     Scaffold(
         topBar = {
@@ -47,7 +50,7 @@ fun RegisterScreen(
         ) {
             OutlinedTextField(
                 value = username,
-                onValueChange = { username = it },
+                onValueChange = { authViewModel.onUsernameChange(it) },
                 label = { Text("Tên người dùng") },
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
@@ -58,7 +61,7 @@ fun RegisterScreen(
 
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = { authViewModel.onEmailChange(it) },
                 label = { Text("Email") },
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
@@ -70,7 +73,7 @@ fun RegisterScreen(
 
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = { authViewModel.onPasswordChange(it) },
                 label = { Text("Mật khẩu") },
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
@@ -82,7 +85,10 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
-                onClick = onRegisterClick,
+                onClick = {
+                    authViewModel.signUp()
+                    onRegisterSuccess()
+                },
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(vertical = 14.dp)
             ) {

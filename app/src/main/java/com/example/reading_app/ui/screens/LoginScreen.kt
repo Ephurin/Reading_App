@@ -13,15 +13,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.reading_app.auth.AuthViewModel
 
 @Composable
 fun LoginScreen(
-    onLoginClick: () -> Unit,
+    onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
-    onSkipClick: () -> Unit // Added for offline mode
+    authViewModel: AuthViewModel = viewModel()
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    val email by authViewModel.email.collectAsState()
+    val password by authViewModel.password.collectAsState()
+    val loginStatus by authViewModel.loginStatus.collectAsState()
+
+    LaunchedEffect(loginStatus) {
+        if (loginStatus == true) {
+            onLoginSuccess()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -53,31 +62,42 @@ fun LoginScreen(
 
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = { authViewModel.onEmailChange(it) },
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
             leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            singleLine = true
+            singleLine = true,
+            isError = loginStatus == false
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = { authViewModel.onPasswordChange(it) },
             label = { Text("Mật khẩu") },
             modifier = Modifier.fillMaxWidth(),
             leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            singleLine = true
+            singleLine = true,
+            isError = loginStatus == false
         )
+
+        if (loginStatus == false) {
+            Text(
+                text = "Sai tên đăng nhập hoặc mật khẩu",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 16.dp, top = 4.dp).align(Alignment.Start)
+            )
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = onLoginClick,
+            onClick = { authViewModel.login() },
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(vertical = 14.dp)
         ) {
@@ -89,12 +109,6 @@ fun LoginScreen(
             TextButton(onClick = onNavigateToRegister) {
                 Text("Đăng ký")
             }
-        }
-
-        // Skip Button
-        Spacer(modifier = Modifier.height(8.dp))
-        TextButton(onClick = onSkipClick) {
-            Text("Bỏ qua và đọc ngoại tuyến")
         }
     }
 }

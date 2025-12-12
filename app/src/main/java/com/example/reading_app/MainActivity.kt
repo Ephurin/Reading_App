@@ -47,24 +47,19 @@ fun ReadingApp() {
     NavHost(navController = rootNavController, startDestination = "login") {
         composable("login") {
             LoginScreen(
-                onLoginClick = {
+                onLoginSuccess = {
                     rootNavController.navigate(route = "main") { 
                         popUpTo(route = "login") { inclusive = true }
                     }
                 },
                 onNavigateToRegister = {
                     rootNavController.navigate(route = "register")
-                },
-                onSkipClick = {
-                    rootNavController.navigate(route = "main") {
-                        popUpTo(route = "login") { inclusive = true }
-                    }
                 }
             )
         }
         composable("register") {
             RegisterScreen(
-                onRegisterClick = { rootNavController.popBackStack() },
+                onRegisterSuccess = { rootNavController.popBackStack() },
                 onNavigateBack = { rootNavController.popBackStack() }
             )
         }
