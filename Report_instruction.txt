@@ -1,0 +1,38 @@
+KHUNG BÁO CÁO BÀI TẬP NHÓM
+Trang bìa: 
+◦	Tên chủ đề của nhóm
+◦	Kẻ bảng để điền thông tin: Danh sách thành viên nhóm và ghi rõ thành viên đó đảm nhiệm làm công việc gì trong bài tập nhóm (gồm công việc phần chung cả nhóm và công việc riêng cá nhân).
+STT	Họ và tên	Phần việc tham gia chung cả nhóm	Phần công việc cá nhân	Ước tính % đóng góp
+				
+				
+				
+
+Ghi chú: Do sản phẩm của nhóm có những nội dung làm chung, khó bóc tách riêng cho từng cá nhân được, nên nhóm trao đổi và thảo luận, dựa trên công sức đóng góp của từng thành viên vào sản phẩm chung để điền tỷ lệ vào cột “Ước tính % đóng góp”. Tổng số % của các thành viên là 100%.
+
+1.	Phần 1 – Công việc chung của nhóm
+a.	Lý do lựa chọn của ứng dụng
+-	Lý do lựa chọn xây dựng ứng dụng
+-	Các ứng dụng có chức năng tương tự đã có trên thị trường: ưu/nhược, ứng dụng của nhóm là gì khác không.
+b.	Mô tả yêu cầu chung của ứng dụng
+-	Phân tích và mô tả yêu cầu của ứng dụng cần đáp ứng về mặt chức năng.
+-	Phân tích và mô tả yêu cầu của ứng dụng cần đáp ứng về mặt phi chức năng.
+-	Vẽ biểu đồ UC tổng quát.
+c.	Phân tích lựa chọn kiến trúc, công nghệ và đưa ra mô hình thiết kế, kiến trúc được sử dụng
+-	Từ yêu cầu mục b, phân tích và đề xuất công nghệ lựa chọn để xây dựng là gì, mô hình kiến trúc như thế nào.
+-	Các nhóm làm ứng dụng mà có tính yêu cầu hiệu năng cao (ví dụ như chat, mạng xã hội,..) thì có thể tham khảo các mô hình kiến trúc, hiểu được các vấn đề và trình bày cũng sẽ được đánh giá.
+d.	Cơ sở dữ liệu:
+-	Ứng dụng sử dụng các hình thức lưu trữ dữ liệu như thế nào. Mô tả cụ thể.
+-	Sơ đồ quan hệ thực thể (hoặc cấu trúc bảng).
+e.	Tổng quan các nội dung mới và khó mà nhóm đã thực hiện
+-	Nhóm tự đánh giá thấy ứng dụng mình có gì mới thì thuyết minh cụ thể: ví dụ mới về tính năng, mới về cách triển khai,…
+-	Nhóm tự đánh giá thấy ứng dụng mình có gì khó thì thuyết minh cụ thể: ví dụ khó về thuật toán, khó về công nghệ, khó về kết nối thiết bị,….
+-	Dự kiến các chức năng, tính năng có thể phát triển tiếp trong tương lai.
+2.	Phần 2 – Kết quả từng thành viên
+Mỗi thành viên trên cơ sở chức năng ứng dụng mà mình chọn làm thì cần thực hiện các nội dung sau (ghi rõ tên từng thành viên trong phần 2 để tiện theo dõi):
+a.	Mô tả chi tiết chức năng: luồng thực hiện (có thể vẽ biểu đồ hoạt động), các ràng buộc nghiệp vụ (nếu có).
+b.	Thiết kế giao diện: giao diện cụ thể của chức năng.
+c.	Giải pháp kỹ thuật để xây dựng chức năng:
+-	Mô tả giải pháp, kỹ thuật để thực hiện chức năng đó: ví dụ mô tả việc xây dựng chức năng được thực hiện như thế nào, có liên quan đến các thành phần nào trong kiến trúc, kết nối đến các Data nào,…
+-	Trình bày cụ thể các vấn đề mới mà chức năng này thực hiện được: ví dụ mới về tính năng, mới về cách triển khai,…
+-	Trình bày cụ thể các vấn đề khó khi xây dựng chức năng này: ví dụ khó về thuật toán, khó về công nghệ, khó về kết nối thiết bị,….
+d.	Các nội dung có thể phát triển tiếp trong tương lai.
