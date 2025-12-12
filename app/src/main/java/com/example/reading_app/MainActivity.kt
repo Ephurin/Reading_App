@@ -122,11 +122,16 @@ fun MainScreen(rootNavController: NavHostController) {
                 SearchScreen()
             }
             composable(BottomNavItem.Profile.route) {
-                ProfileScreen(onLogoutClick = {
-                    rootNavController.navigate(route = "login") {
-                        popUpTo(route = "main") { inclusive = true }
-                    }
-                })
+                ProfileScreen(
+                    onLogoutClick = {
+                        rootNavController.navigate(route = "login") {
+                            popUpTo(route = "main") { inclusive = true }
+                        }
+                    },
+                    onNavigateToAccountSettings = { mainNavController.navigate("account_settings") },
+                    onNavigateToPurchaseManagement = { mainNavController.navigate("purchase_management") },
+                    readerViewModel = readerViewModel
+                )
             }
 
             composable("pdf_reader") {
@@ -168,6 +173,18 @@ fun MainScreen(rootNavController: NavHostController) {
             }
             composable("book_details") {
                 BookDetailsScreen(navController = mainNavController, bookStoreViewModel = bookStoreViewModel, readerViewModel = readerViewModel)
+            }
+            composable("account_settings") {
+                AccountSettingsScreen(
+                    onNavigateBack = { mainNavController.popBackStack() },
+                    onNavigateToEditProfile = { mainNavController.navigate("edit_profile") }
+                )
+            }
+            composable("purchase_management") {
+                PurchaseManagementScreen(onNavigateBack = { mainNavController.popBackStack() })
+            }
+            composable("edit_profile") {
+                EditProfileScreen(onNavigateBack = { mainNavController.popBackStack() })
             }
         }
     }
