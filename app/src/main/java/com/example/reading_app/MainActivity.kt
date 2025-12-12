@@ -3,13 +3,15 @@ package com.example.reading_app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-// removed unused import
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -23,17 +25,21 @@ import com.example.reading_app.ui.navigate.BottomNavItem
 import com.example.reading_app.ui.screens.*
 import com.example.reading_app.ui.theme.Reading_AppTheme
 import com.example.reading_app.viewmodel.ReaderViewModel
+import com.example.reading_app.viewmodel.ThemeViewModel
+import com.example.reading_app.viewmodel.BookStoreViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            Reading_AppTheme {
+            val themeViewModel: ThemeViewModel = viewModel()
+            val useDarkTheme by themeViewModel.isDarkTheme.collectAsState()
+            Reading_AppTheme(darkTheme = useDarkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    ReadingApp()
+                    ReadingApp(themeViewModel = themeViewModel)
                 }
             }
         }
@@ -41,8 +47,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ReadingApp() {
+fun ReadingApp(themeViewModel: ThemeViewModel) {
     val rootNavController = rememberNavController()
+    val bookStoreViewModel: BookStoreViewModel = viewModel()
 
     NavHost(navController = rootNavController, startDestination = "login") {
         composable("login") {
@@ -64,16 +71,23 @@ fun ReadingApp() {
             )
         }
         composable("main") {
-            MainScreen(rootNavController = rootNavController)
+            MainScreen(
+                rootNavController = rootNavController, 
+                themeViewModel = themeViewModel,
+                bookStoreViewModel = bookStoreViewModel
+            )
         }
     }
 }
 
 @Composable
-fun MainScreen(rootNavController: NavHostController) {
+fun MainScreen(
+    rootNavController: NavHostController, 
+    themeViewModel: ThemeViewModel, 
+    bookStoreViewModel: BookStoreViewModel
+) {
     val mainNavController = rememberNavController()
     val readerViewModel: ReaderViewModel = viewModel()
-    val bookStoreViewModel: com.example.reading_app.viewmodel.BookStoreViewModel = viewModel()
 
     Scaffold(
         bottomBar = {
@@ -100,7 +114,12 @@ fun MainScreen(rootNavController: NavHostController) {
                             BookType.PDF -> mainNavController.navigate(route = "pdf_reader")
                             BookType.EPUB -> mainNavController.navigate(route = "epub_reader")
                         }
-                    }
+                    },
+                    onOnlineBookSelected = { onlineBook ->
+                        bookStoreViewModel.select(onlineBook)
+                        mainNavController.navigate("book_details")
+                    },
+                    bookStoreViewModel = bookStoreViewModel
                 )
             }
             composable(BottomNavItem.BookStore.route) {
@@ -119,7 +138,7 @@ fun MainScreen(rootNavController: NavHostController) {
                 )
             }
             composable(BottomNavItem.Search.route) {
-                SearchScreen()
+                SearchScreen(bookStoreViewModel = bookStoreViewModel)
             }
             composable(BottomNavItem.Profile.route) {
                 ProfileScreen(
@@ -177,7 +196,8 @@ fun MainScreen(rootNavController: NavHostController) {
             composable("account_settings") {
                 AccountSettingsScreen(
                     onNavigateBack = { mainNavController.popBackStack() },
-                    onNavigateToEditProfile = { mainNavController.navigate("edit_profile") }
+                    onNavigateToEditProfile = { mainNavController.navigate("edit_profile") },
+                    themeViewModel = themeViewModel
                 )
             }
             composable("purchase_management") {
