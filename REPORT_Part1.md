@@ -1,5 +1,17 @@
 # BÁO CÁO NHÓM – PHẦN 1: CÔNG VIỆC CHUNG
 
+## Trang bìa – Bảng phân công và đóng góp
+
+Tên chủ đề: Reading App – Ứng dụng đọc sách điện tử (PDF/EPUB), ghi chú và dịch nhanh
+
+| STT | Họ và tên             | Phần việc tham gia chung cả nhóm                              | Phần công việc cá nhân                                                                                                                                         | Ước tính % đóng góp |
+|-----|-----------------------|-----------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
+| 1   | Trần Thành Trung      | Thảo luận yêu cầu; thống nhất luồng chức năng; rà soát báo cáo | Thiết kế giao diện chung (layout, màu sắc, cấu trúc Compose); viết và tổng hợp báo cáo phần chung, định dạng nội dung                                          | 25%                  |
+| 2   | Tường Duy Minh Tú     | Thảo luận yêu cầu; thống nhất luồng chức năng                  | Chức năng đăng nhập/ thông tin tài khoản; thiết kế giao diện chung; thiết kế cơ sở dữ liệu lưu sách offline (thư viện, metadata, tiến độ)                     | 25%                  |
+| 3   | Nguyễn Đức Thái       | Thảo luận yêu cầu; kiểm thử tính năng                          | Import sách mềm (PDF, EPUB); chức năng đọc sách; dấu trang/tiến độ; ghi chú sách & highlight (EPUB); dịch thuật (EPUB, ML Kit); tìm kiếm sách online (API)     | 50%                  |
+
+Ghi chú: Tỷ lệ % đóng góp được nhóm thống nhất dựa trên khối lượng công việc và trách nhiệm từng thành viên. Tổng cộng = 100%.
+
 > Ứng dụng: Reading App (Android – EPUB/PDF Reader + Ghi chú + Dịch nhanh)
 
 ## 1.a Lý do lựa chọn ứng dụng
